@@ -149,7 +149,11 @@ export function openPlayerForm(player = null) {
         { name: 'parentPhone', label: 'Parent phone', type: 'tel', inputmode: 'tel' },
         { name: 'parentEmail', label: 'Parent email', type: 'email', inputmode: 'email' },
       ],
-      { name: 'notes', label: 'Notes', type: 'textarea', placeholder: 'Medical info, strong foot, goals…' },
+      {
+        name: 'notes', label: 'Notes', type: 'textarea',
+        placeholder: 'Strong foot, goals, what to work on…',
+        hint: 'Saved on this device and in backups, unencrypted. Keep sensitive details elsewhere.',
+      },
     ],
     normalize: normalizePlayer,
     validate: validatePlayer,

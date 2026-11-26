@@ -142,3 +142,12 @@ test('demo data is only offered on a completely empty app', async ({ page }) => 
   await expect(page.getByRole('heading', { name: 'Backup' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Load demo data' })).toHaveCount(0);
 });
+
+test('player notes do not prompt for medical details', async ({ page }) => {
+  await page.goto('/#/players');
+  await page.getByRole('button', { name: 'Add first player' }).click();
+  const notes = page.getByRole('dialog').getByLabel('Notes');
+  await expect(notes).toBeVisible();
+  expect(await notes.getAttribute('placeholder')).not.toMatch(/medical|health|allerg|condition/i);
+  await expect(page.getByRole('dialog')).toContainText('unencrypted');
+});
