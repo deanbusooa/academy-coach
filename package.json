@@ -1,0 +1,11 @@
+{
+  "name": "academy-coach",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Browser-only app for football coaches: roster, sessions, 1-1 bookings, progress.",
+  "type": "module",
+  "scripts": {
+    "start": "npx --yes serve -l 8080 .",
+    "test": "node tests/run-node.mjs"
+  }
+}

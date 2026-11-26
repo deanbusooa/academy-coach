@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Academy Coach · Tests</title>
+  <style>
+    body { font: 15px/1.5 system-ui, sans-serif; margin: 24px; max-width: 900px; }
+    h1 { margin: 0 0 8px; }
+    .summary { font-weight: 700; margin-bottom: 16px; }
+    .pass { color: #128a48; }
+    .fail { color: #c62828; }
+    li { margin: 4px 0; }
+    code { display: block; margin-left: 20px; color: #c62828; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>Academy Coach tests</h1>
+  <p>Unit tests for models, store, actions, router and backup. Uses in-memory storage, so your real data is untouched.</p>
+  <div class="summary" id="summary">Running…</div>
+  <ul id="results"></ul>
+  <script type="module">
+    import './tests.js';
+    import { run } from './harness.js';
+    const results = await run();
+    const ul = document.getElementById('results');
+    let failed = 0;
+    for (const r of results) {
+      const li = document.createElement('li');
+      li.className = r.ok ? 'pass' : 'fail';
+      li.textContent = `${r.ok ? '✓' : '✗'} ${r.name}`;
+      if (!r.ok) {
+        failed++;
+        const c = document.createElement('code');
+        c.textContent = r.error;
+        li.append(c);
+      }
+      ul.append(li);
+    }
+    const s = document.getElementById('summary');
+    s.textContent = `${results.length - failed}/${results.length} passed`;
+    s.className = `summary ${failed ? 'fail' : 'pass'}`;
+  </script>
+</body>
+</html>

@@ -1,0 +1,263 @@
+/* ==========================================================================
+   Base: reset, design tokens, app layout.
+   All colours/spacing elsewhere must use these tokens.
+   ========================================================================== */
+
+:root {
+  /* Brand */
+  --c-pitch: #0f7b3f;
+  --c-pitch-dark: #0a5a2e;
+  --c-pitch-tint: #e3f3e9;
+  --c-navy: #0b1f33;
+  --c-navy-2: #15304d;
+  --c-accent: #ffc21a;
+  --c-accent-ink: #1d1500;
+
+  /* Neutrals */
+  --c-bg: #f2f5f3;
+  --c-surface: #ffffff;
+  --c-surface-2: #f7f9f8;
+  --c-border: #d9e1dc;
+  --c-text: #10201a;
+  --c-muted: #5a6b63;
+
+  /* Status */
+  --c-ok: #128a48;
+  --c-ok-tint: #dff4e7;
+  --c-warn: #b86e00;
+  --c-warn-tint: #fff1d6;
+  --c-bad: #c62828;
+  --c-bad-tint: #fde4e4;
+
+  /* Skill series (chart) */
+  --c-skill-1: #0f7b3f;
+  --c-skill-2: #1f6fd1;
+  --c-skill-3: #d9480f;
+  --c-skill-4: #8e44ad;
+  --c-skill-5: #c2185b;
+  --c-skill-6: #00897b;
+
+  /* Spacing */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+
+  /* Shape */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 18px;
+  --r-pill: 999px;
+  --shadow-1: 0 1px 2px rgb(11 31 51 / 8%), 0 1px 3px rgb(11 31 51 / 6%);
+  --shadow-2: 0 8px 28px rgb(11 31 51 / 18%);
+
+  /* Type */
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-head: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", system-ui, sans-serif;
+  --fs-sm: 0.875rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.25rem;
+  --fs-xl: 1.6rem;
+
+  --tap: 44px;
+  --nav-h: 64px;
+  --top-h: 56px;
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-pitch: #2fb36a;
+    --c-pitch-dark: #23965a;
+    --c-pitch-tint: #133524;
+    --c-bg: #0a1420;
+    --c-surface: #122234;
+    --c-surface-2: #172b40;
+    --c-border: #24405c;
+    --c-text: #e8f0ec;
+    --c-muted: #93a7b5;
+    --c-ok-tint: #10351f;
+    --c-warn-tint: #3a2a08;
+    --c-bad-tint: #3d1414;
+    --c-skill-1: #2fb36a;
+    --c-skill-2: #5a9cf0;
+    --c-skill-3: #ff7f45;
+    --c-skill-4: #b77de0;
+    --c-skill-5: #f06292;
+    --c-skill-6: #2ec4b0;
+    --shadow-1: 0 1px 2px rgb(0 0 0 / 40%);
+    --shadow-2: 0 8px 28px rgb(0 0 0 / 50%);
+  }
+}
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: var(--fs-md);
+  line-height: 1.45;
+  color: var(--c-text);
+  background: var(--c-bg);
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-head);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.15;
+  margin: 0 0 var(--s-3);
+}
+h2 { font-size: var(--fs-xl); text-transform: uppercase; }
+h3 { font-size: var(--fs-lg); }
+
+p { margin: 0 0 var(--s-3); }
+a { color: var(--c-pitch); }
+img, svg { max-width: 100%; }
+button, input, select, textarea { font: inherit; color: inherit; }
+
+:focus-visible {
+  outline: 3px solid var(--c-accent);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- App layout (mobile first) ---------- */
+
+.app {
+  min-height: 100dvh;
+  display: grid;
+  /* minmax(0, …) stops wide children (chip rows, charts) stretching the page. */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: var(--top-h) 1fr;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: 0 var(--s-4);
+  padding-top: env(safe-area-inset-top);
+  height: calc(var(--top-h) + env(safe-area-inset-top));
+  background: var(--c-navy);
+  color: #fff;
+  border-bottom: 4px solid var(--c-pitch);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  color: #fff;
+  text-decoration: none;
+  font-family: var(--font-head);
+  font-size: 1.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.brand strong { color: var(--c-accent); margin-left: 2px; }
+.brand-mark { width: 28px; height: 28px; color: var(--c-accent); }
+
+.topbar-title {
+  margin: 0 0 0 auto;
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 80%);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.view {
+  padding: var(--s-4);
+  padding-bottom: calc(var(--nav-h) + var(--s-6) + env(safe-area-inset-bottom));
+  max-width: 1100px;
+  width: 100%;
+  min-width: 0;
+  margin: 0 auto;
+  outline: none;
+}
+
+/* Bottom tab bar on mobile */
+.nav {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  height: calc(var(--nav-h) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--c-navy);
+  border-top: 1px solid var(--c-navy-2);
+}
+
+.nav a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: rgb(255 255 255 / 65%);
+  text-decoration: none;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  min-height: var(--tap);
+}
+.nav a svg { width: 24px; height: 24px; }
+.nav a[aria-current="page"] {
+  color: var(--c-accent);
+  box-shadow: inset 0 3px 0 var(--c-accent);
+}
+
+/* Side nav on tablet/desktop */
+@media (min-width: 768px) {
+  .app {
+    grid-template-columns: 200px minmax(0, 1fr);
+    grid-template-rows: var(--top-h) 1fr;
+  }
+  .topbar { grid-column: 1 / -1; }
+  .nav {
+    position: sticky;
+    inset: auto;
+    top: var(--top-h); /* after `inset`, which would reset it */
+    height: calc(100dvh - var(--top-h));
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-1);
+    padding: var(--s-4) var(--s-2);
+    border-top: 0;
+  }
+  .nav a {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: var(--s-3);
+    padding: 0 var(--s-3);
+    font-size: var(--fs-sm);
+    border-radius: var(--r-sm);
+  }
+  .nav a[aria-current="page"] {
+    background: var(--c-navy-2);
+    box-shadow: inset 4px 0 0 var(--c-accent);
+  }
+  .view { padding: var(--s-5); padding-bottom: var(--s-6); }
+}
