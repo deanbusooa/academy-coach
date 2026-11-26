@@ -32,6 +32,11 @@ export function localDateOf(timestamp) {
   return Number.isNaN(d.getTime()) ? '' : toISO(d);
 }
 
+/** Current local time as 'HH:MM'. */
+export function nowTime(now = new Date()) {
+  return `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
+
 export function todayISO(now = new Date()) {
   return toISO(now);
 }

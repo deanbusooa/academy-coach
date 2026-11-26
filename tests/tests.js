@@ -11,7 +11,7 @@ import * as bookings from '../js/models/bookings.js';
 import * as ratings from '../js/models/ratings.js';
 import * as store from '../js/store.js';
 import { validateBackup, buildBackup, backupToState, backupFilename, exportBackup } from '../js/backup.js';
-import { deletePlayer, deleteDrill, renameAgeGroup } from '../js/actions.js';
+import { deletePlayer, deleteDrill, renameAgeGroup, archivePlayer } from '../js/actions.js';
 import { loadDemoData } from '../js/demo.js';
 import { parseHash, matchRoute, href } from '../js/router.js';
 
@@ -546,6 +546,30 @@ test('actions: deletePlayer cascades', () => {
   eq(store.getAll('ratings').length, 0);
   eq(store.getAll('bookings').length, 1);
   eq(store.get('sessions', s.id).attendance, { [q.id]: 'late' });
+});
+
+test('actions: archiving cancels only upcoming 1-1s', () => {
+  eq(bookings.isUpcoming({ date: '2026-11-27', startTime: '09:00' }, '2026-11-26', '18:00'), true);
+  eq(bookings.isUpcoming({ date: '2026-11-26', startTime: '18:30' }, '2026-11-26', '18:00'), true);
+  eq(bookings.isUpcoming({ date: '2026-11-26', startTime: '18:00' }, '2026-11-26', '18:00'), false, 'started now');
+  eq(bookings.isUpcoming({ date: '2026-11-25', startTime: '23:00' }, '2026-11-26', '18:00'), false);
+
+  store.init({ storage: memoryStorage() });
+  const p = store.upsert('players', { name: 'Leaving', ageGroup: 'U9' });
+  const q = store.upsert('players', { name: 'Staying', ageGroup: 'U9' });
+  const B = (playerId, date, startTime, paid = false) => store.upsert('bookings', { playerId, date, startTime, durationMin: 60, price: 30, paid });
+  const pastUnpaid = B(p.id, '2026-11-20', '16:00');
+  const earlierToday = B(p.id, '2026-11-26', '09:00', true);
+  B(p.id, '2026-11-26', '19:00');
+  B(p.id, '2026-12-03', '16:00', true);
+  const other = B(q.id, '2026-12-03', '17:00');
+
+  eq(bookings.upcomingForPlayer(store.getAll('bookings'), p.id, '2026-11-26', '18:00').length, 2);
+  assert(archivePlayer(p.id, { today: '2026-11-26', time: '18:00' }));
+  eq(store.get('players', p.id).archived, true);
+  eq(store.getAll('bookings').map((b) => b.id).sort(), [pastUnpaid.id, earlierToday.id, other.id].sort());
+  eq(store.get('players', q.id).archived, undefined, 'other player untouched');
+  eq(archivePlayer('missing'), false);
 });
 
 test('actions: deleteDrill removes from plans; renameAgeGroup updates refs', () => {

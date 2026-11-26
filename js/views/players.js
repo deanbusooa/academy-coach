@@ -5,9 +5,11 @@ import { h, add, setTitle } from '../utils/dom.js';
 import { href, navigate } from '../router.js';
 import { openFormModal, confirmDialog } from '../ui/form.js';
 import { toast } from '../ui/toast.js';
-import { plural } from '../utils/format.js';
+import { plural, formatMoney } from '../utils/format.js';
+import { todayISO, nowTime, formatDate } from '../utils/date.js';
+import { upcomingForPlayer, totals } from '../models/bookings.js';
 import { POSITIONS, normalizePlayer, validatePlayer, filterPlayers, countByAgeGroup, activePlayers } from '../models/players.js';
-import { deletePlayer, playerDependents } from '../actions.js';
+import { deletePlayer, playerDependents, archivePlayer } from '../actions.js';
 import { pageHead, emptyState, fab, avatar, filterChips, searchBox, ageGroupOptions, listItemLink, rerenderView } from './shared.js';
 
 // View-local UI state survives re-renders triggered by store changes.
@@ -72,11 +74,41 @@ function playerRow(p) {
     h('span', { class: ['badge', p.archived && 'badge-muted'] }, p.ageGroup));
 }
 
-/** Archive or restore. Reversible, so no confirm dialog. */
-export function setArchived(player, archived) {
-  const saved = store.upsert('players', { ...player, archived });
-  if (!saved) return false;
-  toast(archived ? `${player.name} archived — find them under “Archived”` : `${player.name} restored to the roster`);
+/**
+ * Archive or restore. Restoring is instant. Archiving also cancels the player's
+ * upcoming 1-1s, so when there are any it asks first (cancelled bookings
+ * don't come back on restore).
+ * @returns {Promise<boolean>} false keeps an open edit sheet open
+ */
+export async function setArchived(player, archived) {
+  if (!archived) {
+    if (!store.upsert('players', { ...player, archived: false })) return false;
+    toast(`${player.name} restored to the roster`);
+    return true;
+  }
+
+  const upcoming = upcomingForPlayer(store.getAll('bookings'), player.id, todayISO(), nowTime());
+  if (upcoming.length) {
+    const settings = store.getSettings();
+    const paid = upcoming.filter((b) => b.paid);
+    const list = upcoming.slice(0, 5).map((b) => `• ${formatDate(b.date)} ${b.startTime}${b.paid ? ' (paid)' : ''}`).join('\n');
+    const more = upcoming.length > 5 ? `\n• …and ${upcoming.length - 5} more` : '';
+    const refund = paid.length
+      ? `\n\n${plural(paid.length, 'session')} already paid (${formatMoney(totals(paid).paid, settings.currency)}): remember to refund.`
+      : '';
+    const ok = await confirmDialog({
+      title: `Archive ${player.name}?`,
+      message: `Their ${plural(upcoming.length, 'upcoming 1-1 session')} will be cancelled:\n${list}${more}${refund}\n\nPast sessions, payments, attendance and ratings are kept.`,
+      confirmLabel: `Archive & cancel ${plural(upcoming.length, '1-1')}`,
+      danger: true,
+    });
+    if (!ok) return false;
+  }
+
+  if (!archivePlayer(player.id)) return false;
+  toast(upcoming.length
+    ? `${player.name} archived, ${plural(upcoming.length, '1-1')} cancelled`
+    : `${player.name} archived — find them under “Archived”`);
   return true;
 }
 

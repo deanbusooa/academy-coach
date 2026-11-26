@@ -85,6 +85,15 @@ export function findClashes(bookings, b) {
   })());
 }
 
+/** Not started yet: a later date, or later today. */
+export function isUpcoming(b, today, time) {
+  return b.date > today || (b.date === today && b.startTime > time);
+}
+
+export function upcomingForPlayer(bookings, playerId, today, time) {
+  return sortBookings(bookings.filter((b) => b.playerId === playerId && isUpcoming(b, today, time)));
+}
+
 export function unpaidBookings(bookings, today) {
   return sortBookings(bookings.filter((b) => !b.paid && b.date <= today));
 }
