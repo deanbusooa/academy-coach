@@ -23,13 +23,13 @@ index.html ─▶ js/app.js ─▶ router.js ─▶ views/*.js ─▶ models/*.j
 
 | Path | Role |
 |---|---|
-| `js/store.js` | Single state object under key `academyCoach.v1`. `getAll/get/upsert/remove/removeWhere/batch/updateSettings/subscribe/snapshot/replaceAll`. Every write persists, then notifies subscribers. Has `schemaVersion` + `migrate()`. On load/import, `normalizeState()` runs every record through its model's `normalizeX()` (keeping `id`/`createdAt`/`updatedAt`), so views can trust record shapes. Store imports only the pure normalisers from models; models never import the store. |
+| `js/store.js` | Single state object under key `academyCoach.v1`. `getAll/get/upsert/remove/removeWhere/batch/updateSettings/subscribe/snapshot/replaceAll`. Every write persists, then notifies subscribers. Has `schemaVersion` + `migrate()`. Also keeps the "undo import" copy under `academyCoach.v1.undo-import` (`saveUndoCopy`/`getUndoCopyInfo`/`restoreUndoCopy`/`discardUndoCopy`); `resetAll` removes it and any `.corrupt-*` copies. On load/import, `normalizeState()` runs every record through its model's `normalizeX()` (keeping `id`/`createdAt`/`updatedAt`), so views can trust record shapes. Store imports only the pure normalisers from models; models never import the store. |
 | `js/router.js` | Hash router. Routes `{ path: '/x/:id', view, section }`. Calls `view.render(container, params, query)`. `href(path, query)` builds links. |
 | `js/app.js` | Route table, nav, `store.subscribe(() => router.refresh())`, SW registration. |
 | `js/models/*.js` | **Pure** domain functions: `normalizeX`, `validateX` (returns `{field: message}`), filters, derived stats. No DOM, no store. |
-| `js/actions.js` | Cascading writes (delete player → ratings/bookings/attendance; delete drill → session plans; rename age group). |
-| `js/backup.js` | `validateBackup` (pure), `exportBackup` (share sheet on touch devices, else download; injectable deps), `readBackupFile`. |
-| `js/ui/` | `form.js` (config-driven forms + `openFormModal`), `modal.js` (bottom sheet / dialog + `confirmDialog`), `toast.js`, `chart.js` (SVG line chart), `icons.js`. |
+| `js/actions.js` | Writes with rules or cascades: delete player (refused while refunds are due), archive (cancels upcoming 1-1s), cancel booking, save rating (one per player per date), bulk-delete long-archived players, delete drill, rename age group. |
+| `js/backup.js` | `validateBackup` (pure); optional encryption (`encryptBackup`/`decryptBackup`: AES-GCM-256, PBKDF2-SHA256 600k iterations, JSON wrapper with `encrypted: true`); `prepareBackup` (build/encrypt ahead of the save tap) + `exportBackup` (share sheet on touch devices, else download; injectable deps); `latestChangeAt`/`compareBackupAge` for the import warning; `readBackupFile`. |
+| `js/ui/` | `form.js` (config-driven forms + `openFormModal`; `leftAction` for the footer's left button, `warn(record)` for confirm-to-save warnings such as booking clashes), `modal.js` (bottom sheet / dialog + `confirmDialog`, `cancelLabel: null` for one-button notices), `toast.js` (optional `icon`), `chart.js` (SVG line chart), `icons.js`. |
 | `js/views/` | One module per screen. `shared.js` holds common bits (page head, chips, search, FAB, empty state). |
 | `js/utils/` | `dom.js` (`h()`, `add()`, `setTitle`), `date.js`, `format.js`. |
 | `css/` | `base.css` (tokens + layout), `components.css` (reusable), `views.css` (screen-specific). |
@@ -38,17 +38,24 @@ index.html ─▶ js/app.js ─▶ router.js ─▶ views/*.js ─▶ models/*.j
 ### Data model (collections in the store)
 
 ```
-players   { id, name, ageGroup, position, parentName, parentPhone, parentEmail, notes, archived, joinedOn }
+players   { id, name, ageGroup, position, parentName, parentPhone, parentEmail, notes, archived, archivedAt, joinedOn }
+          // archivedAt: set by archivePlayer, cleared on restore; drives "delete archived older than N months".
           // joinedOn: ISO date attendance counts from (falls back to the createdAt local day).
           // archived: hidden from roster/registers/pickers (activePlayers, filterPlayers, sessionRoster), history kept.
           // Archive is the normal "remove" and cancels (never deletes) upcoming 1-1s (actions.archivePlayer);
           // permanent delete is only offered on an archived player's page.
 drills    { id, name, durationMin, equipment[], coachingPoints[], ageGroups[] (empty = all), notes }
 sessions  { id, date, time, ageGroup, location, title, drillIds[] (ordered), attendance{ playerId: 'present'|'late'|'absent' }, notes }
-bookings  { id, playerId, date, startTime, durationMin, focusArea, price, paid, location, notes, status, refundDue, refundedAt }
+bookings  { id, playerId, date, startTime, durationMin, focusArea, price, paid, location, notes,
+            responsibleAdult, handover, status, refundDue, refundedAt, cancelledAt }
+          // responsibleAdult defaults to the parent contact (defaultResponsibleAdult); handover = drop-off/collection notes.
+          // Edit form: removalAction() → 'cancel' (paid, not started), 'delete-mistake' (paid, started/past), 'delete' (unpaid).
+          // Overlaps are allowed but need "Book anyway" (clashWarning via openFormModal's warn hook).
           // status 'booked' | 'cancelled'. Cancelled (e.g. by archiving the player) stays on record but the model's
           // calendar/totals/owed/clash helpers skip it. refundDue = cancelled while paid; markRefunded() settles it.
 ratings   { id, playerId, date, scores{ dribbling, passing, firstTouch, shooting, defending, fitness: 1..5 (each optional) }, notes }
+          // One per player per date (actions.saveRating replaces). scores holds ONLY skills observed that time:
+          // never pre-fill a new rating from earlier scores (show them as hints). RUBRIC explains 1/3/5.
 settings  { ageGroups[], currency, defaultPrice, defaultDuration }
 meta      { lastExportAt, createdAt }
 ```
@@ -76,7 +83,8 @@ Any store write re-renders the **whole current view** (scroll position kept). So
 - **CSS:** mobile-first; breakpoints 560/640/768/1024px. Use tokens from `base.css` (`--c-*`, `--s-*`, `--r-*`), with no hard-coded colours in components. Dark mode is automatic via `prefers-color-scheme` and the tokens. Tap targets ≥ 44px (`--tap`). Inputs use 16px font (prevents iOS zoom).
 - Inline custom properties must go through `h(..., { style: { '--dot': c } })`. `h()` uses `setProperty` for `--*` keys, because plain assignment silently drops them.
 - Accessibility: buttons for actions and links for navigation; `aria-pressed` on toggles; `aria-label` on icon-only buttons. Open dialogs through `ui/modal.js` (it sets `inert` on everything behind the top dialog and returns focus to the opener). Don't remove the global `:focus-visible` ring. Animations must be decorative: `prefers-reduced-motion` switches them off.
-- Stored text is unencrypted (device and backups). Don't add fields or prompts that invite medical or other sensitive data.
+- Stored data is unencrypted on the device, and in backups unless the coach chooses an encrypted one. Don't add fields or prompts that invite medical or other sensitive data. If you add a stored field, mention it in Settings → Your data (`yourDataCard` in `views/settings.js`).
+- Destructive actions confirm first and say what will be lost. Bulk or permanent deletes skip players with refunds due.
 
 ## How to…
 
@@ -87,4 +95,4 @@ Any store write re-renders the **whole current view** (scroll position kept). So
 
 ## Testing checklist (manual, phone-sized viewport)
 
-Load demo data → add a player (validation shows) → plan a session, add drills, reorder → tap attendance tiles → add/toggle-paid a 1-1 booking, change weeks → rate a player and check the chart → export, reset, import → reload (data persists) → go offline and reload (app still loads).
+Load demo data → add a player (validation shows) → plan a session, add drills, reorder → tap attendance tiles → add/toggle-paid a 1-1 booking, check responsible adult, try a clashing time ("Book anyway"), change weeks → rate a player (starts "Not observed") and check the chart → archive a player with a paid upcoming 1-1 and settle the refund → export encrypted, import it (wrong then right passphrase), undo the import → reload (data persists) → go offline and reload (app still loads).
