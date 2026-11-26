@@ -1,10 +1,10 @@
 // Formatting helpers for display only (never for stored values).
 
-export const CURRENCIES = ['GBP', 'EUR', 'USD', 'AUD', 'CAD', 'NZD', 'ZAR', 'NGN', 'GHS', 'KES', 'INR', 'AED'];
+export const CURRENCIES = ['AUD', 'NZD', 'GBP', 'EUR', 'USD', 'CAD', 'ZAR', 'NGN', 'GHS', 'KES', 'INR', 'AED'];
 
 const moneyCache = new Map();
 
-export function formatMoney(amount, currency = 'GBP') {
+export function formatMoney(amount, currency = 'AUD') {
   const n = Number(amount) || 0;
   let fmt = moneyCache.get(currency);
   if (!fmt) {

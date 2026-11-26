@@ -17,7 +17,7 @@ export const DEFAULT_AGE_GROUPS = ['U6', 'U7', 'U8', 'U9', 'U10', 'U11', 'U12', 
 export function defaultSettings() {
   return {
     ageGroups: [...DEFAULT_AGE_GROUPS],
-    currency: 'GBP',
+    currency: 'AUD',
     defaultPrice: 30,
     defaultDuration: 60,
   };

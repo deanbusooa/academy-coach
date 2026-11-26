@@ -9,16 +9,16 @@ export function loadDemoData(today = todayISO()) {
       store.upsert('players', { name, ageGroup, position, parentName, parentPhone, parentEmail: '', notes: '' });
 
     const u9 = [
-      P('Leo Martins', 'U9', 'Forward', 'Ana Martins', '07700 900101'),
-      P('Ava Okafor', 'U9', 'Midfielder', 'Chidi Okafor', '07700 900102'),
-      P('Sam Patel', 'U9', 'Defender', 'Priya Patel', '07700 900103'),
-      P('Mia Novak', 'U9', 'Goalkeeper', 'Petr Novak', '07700 900104'),
-      P('Noah Kim', 'U9', 'Midfielder', 'Jin Kim', '07700 900105'),
+      P('Leo Martins', 'U9', 'Forward', 'Ana Martins', '+61 491 570 156'),
+      P('Ava Okafor', 'U9', 'Midfielder', 'Chidi Okafor', '+61 491 570 157'),
+      P('Sam Patel', 'U9', 'Defender', 'Priya Patel', '+61 491 570 158'),
+      P('Mia Novak', 'U9', 'Goalkeeper', 'Petr Novak', '+61 491 570 159'),
+      P('Noah Kim', 'U9', 'Midfielder', 'Jin Kim', '+61 491 570 110'),
     ];
     const u11 = [
-      P('Ella Reid', 'U11', 'Forward', 'Tom Reid', '07700 900106'),
-      P('Kai Mensah', 'U11', 'Defender', 'Akosua Mensah', '07700 900107'),
-      P('Zara Ali', 'U11', 'Midfielder', 'Omar Ali', '07700 900108'),
+      P('Ella Reid', 'U11', 'Forward', 'Tom Reid', '+61 491 570 313'),
+      P('Kai Mensah', 'U11', 'Defender', 'Akosua Mensah', '+61 491 570 737'),
+      P('Zara Ali', 'U11', 'Midfielder', 'Omar Ali', '+61 491 570 006'),
     ];
 
     const D = (name, durationMin, equipment, coachingPoints, ageGroups = []) =>

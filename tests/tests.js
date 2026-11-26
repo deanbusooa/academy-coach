@@ -12,6 +12,7 @@ import * as ratings from '../js/models/ratings.js';
 import * as store from '../js/store.js';
 import { validateBackup, buildBackup, backupToState, backupFilename } from '../js/backup.js';
 import { deletePlayer, deleteDrill, renameAgeGroup } from '../js/actions.js';
+import { loadDemoData } from '../js/demo.js';
 import { parseHash, matchRoute, href } from '../js/router.js';
 
 // ---------- utils ----------
@@ -415,6 +416,20 @@ test('store: batch rolls back if its function throws', () => {
   assert(threw, 'error re-thrown');
   eq(store.getAll('drills').map((d) => d.name), ['keep']);
   assert(store.upsert('drills', { name: 'after' }), 'store usable afterwards');
+});
+
+test('defaults: AUD currency; demo phones are +61 and valid (regression)', () => {
+  eq(store.defaultSettings().currency, 'AUD');
+  store.init({ storage: memoryStorage() });
+  eq(store.getSettings().currency, 'AUD');
+  assert(loadDemoData('2026-11-26'), 'demo data saved');
+  const demo = store.getAll('players');
+  assert(demo.length > 0);
+  for (const p of demo) {
+    assert(/^\+61 4\d{2} \d{3} \d{3}$/.test(p.parentPhone), `${p.name}: ${p.parentPhone}`);
+    eq(players.validatePlayer(p), {}, p.name);
+    assert(players.telHref(p.parentPhone).startsWith('tel:+614'));
+  }
 });
 
 test('store: rejects data from a newer schema', () => {
