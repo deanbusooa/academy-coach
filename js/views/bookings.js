@@ -12,9 +12,10 @@ import {
 } from '../utils/date.js';
 import {
   FOCUS_AREAS, normalizeBooking, validateBooking, bookingsInWeek, groupByDay, totals, endTime,
-  findClashes, unpaidBookings, refundsDue, markRefunded,
+  findClashes, unpaidBookings, refundsDue, markRefunded, removalAction, refundsDueTotal,
 } from '../models/bookings.js';
 import { pageHead, emptyState, fab, playerOptions } from './shared.js';
+import { cancelBookingById } from '../actions.js';
 
 export function render(container, _params, query) {
   setTitle('1-1 Sessions');
@@ -86,7 +87,7 @@ export function render(container, _params, query) {
   // Paid sessions cancelled by archiving a player: money to hand back.
   const refunds = refundsDue(all);
   if (refunds.length) {
-    const due = Math.round(refunds.reduce((sum, b) => sum + (b.price || 0), 0) * 100) / 100;
+    const due = refundsDueTotal(all);
     container.append(h('section', { class: 'card refunds-card', style: { marginTop: 'var(--s-4)' } },
       h('div', { class: 'card-head' },
         h('h3', {}, 'Refunds due'),
@@ -183,12 +184,34 @@ export function openBookingForm(input = {}) {
       if (location.hash.startsWith('#/bookings')) navigate('/bookings', { week: startOfWeek(saved.date) });
       return true;
     },
-    onDelete: isEdit ? async () => {
-      const ok = await confirmDialog({ title: 'Delete this booking?', confirmLabel: 'Delete', danger: true });
-      if (!ok) return false;
-      if (!store.remove('bookings', input.id)) return false;
-      toast('Booking deleted');
-      return true;
-    } : null,
+    // Paid: the money is owed back, so cancel (kept on record, refund due)
+    // instead of deleting. Unpaid: plain delete. Based on the saved booking.
+    leftAction: !isEdit ? null : removalAction(input) === 'cancel'
+      ? {
+        label: 'Cancel (refund due)', icon: 'x', danger: true,
+        run: async () => {
+          const ok = await confirmDialog({
+            title: 'Cancel this paid 1-1?',
+            message: `It comes off the calendar and ${formatMoney(input.price, settings.currency)} is added to Refunds due on the 1-1s page.`,
+            confirmLabel: 'Cancel booking',
+            cancelLabel: 'Keep booking',
+            danger: true,
+          });
+          if (!ok) return false;
+          if (!cancelBookingById(input.id)) return false;
+          toast(`Booking cancelled. ${formatMoney(input.price, settings.currency)} refund due`);
+          return true;
+        },
+      }
+      : {
+        label: 'Delete', icon: 'trash', danger: true,
+        run: async () => {
+          const ok = await confirmDialog({ title: 'Delete this booking?', confirmLabel: 'Delete', danger: true });
+          if (!ok) return false;
+          if (!store.remove('bookings', input.id)) return false;
+          toast('Booking deleted');
+          return true;
+        },
+      },
   });
 }

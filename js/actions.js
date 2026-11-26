@@ -3,7 +3,7 @@
 
 import * as store from './store.js';
 import { todayISO, nowTime } from './utils/date.js';
-import { upcomingForPlayer, cancelBooking } from './models/bookings.js';
+import { upcomingForPlayer, cancelBooking, isCancelled } from './models/bookings.js';
 import { ratingOn } from './models/ratings.js';
 
 /** Delete a player and everything that references them. */
@@ -69,6 +69,16 @@ export function saveRating(rec) {
     if (drop.size) store.removeWhere('ratings', (r) => drop.has(r.id));
   });
   return ok ? { saved: store.get('ratings', keep.id), replaced: true } : null;
+}
+
+/**
+ * Cancel one booking (stays on record, leaves the calendar/totals; refundDue
+ * if it was paid). @returns the saved booking, or null if missing/not saved.
+ */
+export function cancelBookingById(bookingId) {
+  const b = store.get('bookings', bookingId);
+  if (!b || isCancelled(b)) return null;
+  return store.upsert('bookings', cancelBooking(b));
 }
 
 /** Delete a drill and remove it from any session plans. */

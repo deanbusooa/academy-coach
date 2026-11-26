@@ -11,7 +11,7 @@ import * as bookings from '../js/models/bookings.js';
 import * as ratings from '../js/models/ratings.js';
 import * as store from '../js/store.js';
 import { validateBackup, buildBackup, backupToState, backupFilename, exportBackup } from '../js/backup.js';
-import { deletePlayer, deleteDrill, renameAgeGroup, archivePlayer, saveRating } from '../js/actions.js';
+import { deletePlayer, deleteDrill, renameAgeGroup, archivePlayer, saveRating, cancelBookingById } from '../js/actions.js';
 import { loadDemoData } from '../js/demo.js';
 import { parseHash, matchRoute, href } from '../js/router.js';
 
@@ -290,6 +290,22 @@ test('bookings: clash detection', () => {
   eq(bookings.findClashes(list, { id: 'n', date: '2026-11-26', startTime: '16:30', durationMin: 30 }).length, 1);
   eq(bookings.findClashes(list, { id: 'n', date: '2026-11-26', startTime: '17:00', durationMin: 30 }).length, 0);
   eq(bookings.findClashes(list, { id: '1', date: '2026-11-26', startTime: '16:00', durationMin: 60 }).length, 0);
+});
+
+test('bookings: paid bookings are cancelled (refund due), unpaid can be deleted', () => {
+  eq(bookings.removalAction({ paid: true }), 'cancel');
+  eq(bookings.removalAction({ paid: false }), 'delete');
+
+  store.init({ storage: memoryStorage() });
+  const paid = store.upsert('bookings', bookings.normalizeBooking({ playerId: 'p', date: '2026-12-01', startTime: '16:00', durationMin: 60, price: 35, paid: true }));
+  const unpaid = store.upsert('bookings', bookings.normalizeBooking({ playerId: 'p', date: '2026-12-02', startTime: '16:00', durationMin: 60, price: 30 }));
+  const saved = cancelBookingById(paid.id);
+  eq([saved.status, saved.refundDue], ['cancelled', true]);
+  eq(store.getAll('bookings').length, 2, 'kept on record');
+  eq(bookings.bookingsInWeek(store.getAll('bookings'), '2026-11-30').map((b) => b.id), [unpaid.id], 'off the calendar');
+  eq(bookings.refundsDueTotal(store.getAll('bookings')), 35);
+  eq(cancelBookingById(paid.id), null, 'already cancelled');
+  eq(cancelBookingById('missing'), null);
 });
 
 // ---------- ratings ----------

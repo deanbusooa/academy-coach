@@ -44,6 +44,20 @@ export function markRefunded(b, at = new Date().toISOString()) {
   return { ...b, refundDue: false, refundedAt: at };
 }
 
+/**
+ * How a booking can be taken off the calendar from its edit form:
+ * a paid one is cancelled (the money is owed back, so it must stay on record);
+ * an unpaid one can simply be deleted.
+ */
+export function removalAction(b) {
+  return b.paid ? 'cancel' : 'delete';
+}
+
+/** Total still to be refunded, rounded to cents. */
+export function refundsDueTotal(bookings) {
+  return Math.round(refundsDue(bookings).reduce((sum, b) => sum + (b.price || 0), 0) * 100) / 100;
+}
+
 /** Cancelled bookings whose payment still has to be returned, oldest first. */
 export function refundsDue(bookings) {
   return sortBookings(bookings.filter((b) => isCancelled(b) && b.refundDue));
