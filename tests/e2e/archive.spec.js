@@ -74,5 +74,14 @@ test('archive cancels upcoming 1-1s, keeps them on record, and tracks refunds', 
   const settled = (await savedState(page)).bookings.filter((b) => b.refundedAt);
   expect(settled).toHaveLength(1);
   expect(settled[0].refundDue).toBe(false);
+
+  // Restoring says the cancelled 1-1s stay cancelled, and doesn't rebook them.
+  await page.goto(`/#/players/${leo.id}`);
+  await page.locator('.archived-banner').getByRole('button', { name: 'Restore to roster' }).click();
+  const toast = page.locator('.toast', { hasText: 'restored' });
+  await expect(toast).toContainText(`Their ${upcomingIds.length} cancelled 1-1`);
+  await expect(toast).toContainText('not restored');
+  const restored = (await savedState(page)).bookings.filter((b) => upcomingIds.includes(b.id));
+  expect(restored.every((b) => b.status === 'cancelled')).toBe(true);
   errs.expectNone();
 });

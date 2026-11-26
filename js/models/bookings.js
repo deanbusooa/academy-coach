@@ -139,6 +139,18 @@ export function upcomingForPlayer(bookings, playerId, today, time) {
   return sortBookings(active(bookings).filter((b) => b.playerId === playerId && isUpcoming(b, today, time)));
 }
 
+/** Cancelled bookings of a player that would still be in the future (e.g. to mention on restore). */
+export function cancelledUpcomingForPlayer(bookings, playerId, today, time) {
+  return sortBookings(bookings.filter((b) => b.playerId === playerId && isCancelled(b) && isUpcoming(b, today, time)));
+}
+
+/** Restore toast: archiving cancelled their upcoming 1-1s, and restoring doesn't bring them back. */
+export function restoredMessage(name, cancelledCount) {
+  if (!cancelledCount) return `${name} restored to the roster`;
+  const n = cancelledCount === 1 ? '1 cancelled 1-1 is' : `${cancelledCount} cancelled 1-1s are`;
+  return `${name} restored. Their ${n} not restored: rebook on the 1-1s page if needed.`;
+}
+
 export function unpaidBookings(bookings, today) {
   return sortBookings(active(bookings).filter((b) => !b.paid && b.date <= today));
 }

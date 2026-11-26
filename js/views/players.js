@@ -7,7 +7,7 @@ import { openFormModal, confirmDialog } from '../ui/form.js';
 import { toast } from '../ui/toast.js';
 import { plural, formatMoney } from '../utils/format.js';
 import { todayISO, nowTime, formatDate } from '../utils/date.js';
-import { upcomingForPlayer, totals, refundsDueTotal } from '../models/bookings.js';
+import { upcomingForPlayer, totals, refundsDueTotal, cancelledUpcomingForPlayer, restoredMessage } from '../models/bookings.js';
 import { POSITIONS, normalizePlayer, validatePlayer, filterPlayers, countByAgeGroup, activePlayers } from '../models/players.js';
 import { deletePlayer, playerDependents, archivePlayer } from '../actions.js';
 import { pageHead, emptyState, fab, avatar, filterChips, searchBox, ageGroupOptions, listItemLink, rerenderView } from './shared.js';
@@ -83,7 +83,8 @@ function playerRow(p) {
 export async function setArchived(player, archived) {
   if (!archived) {
     if (!store.upsert('players', { ...player, archived: false })) return false;
-    toast(`${player.name} restored to the roster`);
+    const cancelled = cancelledUpcomingForPlayer(store.getAll('bookings'), player.id, todayISO(), nowTime());
+    toast(restoredMessage(player.name, cancelled.length), { icon: cancelled.length ? 'warning' : null, duration: cancelled.length ? 6000 : 2600 });
     return true;
   }
 

@@ -714,6 +714,20 @@ test('actions: deletePlayer is refused while the player has refunds due (regress
   eq(store.getAll('bookings').length, 0);
 });
 
+test('restore: message says cancelled upcoming 1-1s are not restored', () => {
+  const list = [
+    bookings.cancelBooking({ id: 'a', playerId: 'p', date: '2026-12-01', startTime: '16:00', paid: true }),
+    bookings.cancelBooking({ id: 'b', playerId: 'p', date: '2026-12-08', startTime: '16:00' }),
+    bookings.cancelBooking({ id: 'c', playerId: 'p', date: '2026-11-01', startTime: '16:00' }), // past: irrelevant
+    { id: 'd', playerId: 'p', date: '2026-12-15', startTime: '16:00', status: 'booked' },        // not cancelled
+    bookings.cancelBooking({ id: 'e', playerId: 'q', date: '2026-12-01', startTime: '16:00' }), // other player
+  ];
+  eq(bookings.cancelledUpcomingForPlayer(list, 'p', '2026-11-26', '12:00').map((b) => b.id), ['a', 'b']);
+  eq(bookings.restoredMessage('Leo', 0), 'Leo restored to the roster');
+  eq(bookings.restoredMessage('Leo', 1), 'Leo restored. Their 1 cancelled 1-1 is not restored: rebook on the 1-1s page if needed.');
+  eq(bookings.restoredMessage('Leo', 2), 'Leo restored. Their 2 cancelled 1-1s are not restored: rebook on the 1-1s page if needed.');
+});
+
 test('actions: deleteDrill removes from plans; renameAgeGroup updates refs', () => {
   store.init({ storage: memoryStorage() });
   const d = store.upsert('drills', { name: 'a', ageGroups: ['U9'] });
