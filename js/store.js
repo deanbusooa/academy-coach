@@ -128,12 +128,16 @@ const NORMALIZERS = {
   ratings: normalizeRating,
 };
 
-/** Run one stored record through its model normaliser, keeping store-owned fields. */
+/**
+ * Run one stored record through its model normaliser. Known fields are
+ * cleaned; unknown ones are kept as-is, so data written by a newer version
+ * of the app (or another tab running one) survives a load → save cycle here.
+ */
 function normalizeRecord(collection, r) {
   if (!r || typeof r !== 'object' || Array.isArray(r)) return null;
   const id = typeof r.id === 'string' && r.id ? r.id : newId();
-  const out = { ...NORMALIZERS[collection](r), id };
-  for (const k of ['createdAt', 'updatedAt']) if (typeof r[k] === 'string') out[k] = r[k];
+  const out = { ...r, ...NORMALIZERS[collection](r), id };
+  for (const k of ['createdAt', 'updatedAt']) if (typeof out[k] !== 'string') delete out[k];
   return out;
 }
 

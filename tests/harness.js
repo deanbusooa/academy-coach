@@ -16,6 +16,14 @@ export function eq(actual, expected, msg = '') {
   if (a !== e) throw new Error(`${msg ? `${msg}: ` : ''}expected ${e}, got ${a}`);
 }
 
+/** Like eq() for plain objects, but ignores key order. */
+export function eqFields(actual, expected, msg = '') {
+  const sorted = (o) => (o && typeof o === 'object' && !Array.isArray(o)
+    ? Object.fromEntries(Object.keys(o).sort().map((k) => [k, sorted(o[k])]))
+    : o);
+  eq(sorted(actual), sorted(expected), msg);
+}
+
 /**
  * In-memory Storage stand-in for store.init({ storage }).
  * Set `.failing = true` to make setItem throw like a full localStorage.

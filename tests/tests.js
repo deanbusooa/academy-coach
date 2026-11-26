@@ -1,7 +1,7 @@
 // Unit tests for pure logic: utils, models, store, backup validation.
 // Run in a browser via tests/index.html or with `node tests/run-node.mjs`.
 
-import { test, assert, eq, memoryStorage } from './harness.js';
+import { test, assert, eq, eqFields, memoryStorage } from './harness.js';
 import * as date from '../js/utils/date.js';
 import { formatDuration, initials } from '../js/utils/format.js';
 import * as players from '../js/models/players.js';
@@ -317,7 +317,7 @@ test('store: malformed backup records are normalised (regression)', () => {
   });
   const loaded = store.getAll('players');
   eq(loaded.length, 2);
-  eq(loaded[0], { id: 'p1', name: '42', ageGroup: '', position: '', parentName: '', parentPhone: '', parentEmail: '', notes: '', archived: false, createdAt: '2026-11-01T10:00:00.000Z' });
+  eqFields(loaded[0], { id: 'p1', name: '42', ageGroup: '', position: '', parentName: '', parentPhone: '', parentEmail: '', notes: '', archived: false, createdAt: '2026-11-01T10:00:00.000Z' });
   assert(typeof loaded[1].id === 'string' && loaded[1].id, 'missing id assigned');
   eq(store.get('drills', 'd1').equipment, ['cones', 'bibs']);
   eq(store.get('drills', 'd1').coachingPoints, []);
@@ -338,6 +338,27 @@ test('store: malformed backup records are normalised (regression)', () => {
   sessions.splitUpcomingPast(store.getAll('sessions'), '2026-11-26');
   sessions.sessionRoster(loaded, store.get('sessions', 's1'));
   drills.filterDrills(store.getAll('drills'), { query: 'cone' });
+});
+
+test('store: unknown record fields survive reload and import (regression)', () => {
+  const storage = memoryStorage({
+    [store.STORAGE_KEY]: JSON.stringify({
+      schemaVersion: 1,
+      players: [{ id: 'p', name: 'A', ageGroup: 'U9', shirtNumber: 7, kit: { size: 'S' }, createdAt: 5 }],
+      sessions: [{ id: 's', date: '2026-11-01', ageGroup: 'U9', weather: 'rain' }],
+    }),
+  });
+  store.init({ storage });
+  eq(store.get('players', 'p').shirtNumber, 7);
+  eq(store.get('players', 'p').kit, { size: 'S' });
+  assert(!('createdAt' in store.get('players', 'p')), 'non-string createdAt dropped');
+  eq(store.get('sessions', 's').weather, 'rain');
+  // A save writes them back out.
+  store.upsert('players', { ...store.get('players', 'p'), name: 'B' });
+  eq(JSON.parse(storage.getItem(store.STORAGE_KEY)).players[0].shirtNumber, 7);
+  // Same through import.
+  store.replaceAll({ schemaVersion: 1, drills: [{ id: 'd', name: 'x', durationMin: 5, video: 'url' }] });
+  eq(store.get('drills', 'd').video, 'url');
 });
 
 test('store: corrupt data is set aside, not lost', () => {
