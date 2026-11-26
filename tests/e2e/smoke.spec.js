@@ -3,6 +3,9 @@ import { test, expect } from '@playwright/test';
 import { trackErrors, loadDemo, savedState, isoDaysFromToday } from './helpers.js';
 
 test('coach workflow: roster → session → register → 1-1 → rating → backup round trip', async ({ page }, testInfo) => {
+  // ~40 steps end to end: on CI's WebKit runner this ran out of the default
+  // 30 s at its last step. 3× budget for this one test; others keep 30 s.
+  test.slow();
   const errs = trackErrors(page);
   await loadDemo(page);
   await expect(page.locator('.list .title')).toHaveCount(8);
