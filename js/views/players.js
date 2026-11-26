@@ -7,7 +7,7 @@ import { openFormModal, confirmDialog } from '../ui/form.js';
 import { toast } from '../ui/toast.js';
 import { plural, formatMoney } from '../utils/format.js';
 import { todayISO, nowTime, formatDate } from '../utils/date.js';
-import { upcomingForPlayer, totals } from '../models/bookings.js';
+import { upcomingForPlayer, totals, refundsDueTotal } from '../models/bookings.js';
 import { POSITIONS, normalizePlayer, validatePlayer, filterPlayers, countByAgeGroup, activePlayers } from '../models/players.js';
 import { deletePlayer, playerDependents, archivePlayer } from '../actions.js';
 import { pageHead, emptyState, fab, avatar, filterChips, searchBox, ageGroupOptions, listItemLink, rerenderView } from './shared.js';
@@ -115,6 +115,23 @@ export async function setArchived(player, archived) {
 /** Permanent delete, offered only for archived players. */
 export async function confirmDeletePlayer(player) {
   const dep = playerDependents(player.id);
+
+  // Money still owed back: deleting would lose that record, so refuse and say what's outstanding.
+  if (dep.refundsDue.length) {
+    const settings = store.getSettings();
+    const list = dep.refundsDue
+      .map((b) => `• ${formatDate(b.date)} ${b.startTime}: ${formatMoney(b.price, settings.currency)}`)
+      .join('\n');
+    const open = await confirmDialog({
+      title: `Can't delete ${player.name} yet`,
+      message: `${plural(dep.refundsDue.length, 'refund')} still due (${formatMoney(refundsDueTotal(dep.refundsDue), settings.currency)}):\n${list}\n\nPay ${dep.refundsDue.length === 1 ? 'it' : 'them'} back and choose “Mark refunded” on the 1-1s page, then delete.`,
+      confirmLabel: 'Open Refunds due',
+      cancelLabel: 'Close',
+    });
+    if (open) navigate('/bookings');
+    return false;
+  }
+
   const extra = dep.ratings || dep.bookings
     ? `\n\nThis also deletes ${plural(dep.ratings, 'rating')} and ${plural(dep.bookings, '1-1 booking')}.`
     : '';

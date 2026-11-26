@@ -3,11 +3,16 @@
 
 import * as store from './store.js';
 import { todayISO, nowTime } from './utils/date.js';
-import { upcomingForPlayer, cancelBooking, isCancelled } from './models/bookings.js';
+import { upcomingForPlayer, cancelBooking, isCancelled, refundsDueForPlayer } from './models/bookings.js';
 import { ratingOn } from './models/ratings.js';
 
-/** Delete a player and everything that references them. */
+/**
+ * Delete a player and everything that references them.
+ * Refused (returns false, nothing deleted) while the player has refunds due:
+ * deleting would erase the record of money owed back. Mark them refunded first.
+ */
 export function deletePlayer(playerId) {
+  if (refundsDueForPlayer(store.getAll('bookings'), playerId).length) return false;
   return store.batch(() => {
     store.remove('players', playerId);
     store.removeWhere('ratings', (r) => r.playerId === playerId);
@@ -27,6 +32,7 @@ export function playerDependents(playerId) {
   return {
     ratings: store.getAll('ratings').filter((r) => r.playerId === playerId).length,
     bookings: store.getAll('bookings').filter((b) => b.playerId === playerId).length,
+    refundsDue: refundsDueForPlayer(store.getAll('bookings'), playerId),
   };
 }
 

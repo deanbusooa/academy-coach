@@ -11,7 +11,7 @@ import * as bookings from '../js/models/bookings.js';
 import * as ratings from '../js/models/ratings.js';
 import * as store from '../js/store.js';
 import { validateBackup, buildBackup, backupToState, backupFilename, exportBackup } from '../js/backup.js';
-import { deletePlayer, deleteDrill, renameAgeGroup, archivePlayer, saveRating, cancelBookingById } from '../js/actions.js';
+import { deletePlayer, deleteDrill, renameAgeGroup, archivePlayer, saveRating, cancelBookingById, playerDependents } from '../js/actions.js';
 import { loadDemoData } from '../js/demo.js';
 import { parseHash, matchRoute, href } from '../js/router.js';
 
@@ -691,6 +691,27 @@ test('bookings: cancelled ones leave calendar, totals, owed and clashes; refunds
   eq(bookings.normalizeBooking(cancelledPaid).refundDue, true);
   eq(bookings.normalizeBooking({ status: 'weird', refundDue: true }).status, 'booked');
   eq(bookings.normalizeBooking({ status: 'weird', refundDue: true }).refundDue, false, 'refund only on cancelled');
+});
+
+test('actions: deletePlayer is refused while the player has refunds due (regression)', () => {
+  store.init({ storage: memoryStorage() });
+  const p = store.upsert('players', { name: 'Owed', ageGroup: 'U9', archived: true });
+  const paid = store.upsert('bookings', bookings.cancelBooking({ playerId: p.id, date: '2026-12-01', startTime: '16:00', price: 30, paid: true }));
+  store.upsert('bookings', bookings.cancelBooking({ playerId: p.id, date: '2026-12-02', startTime: '16:00', price: 30, paid: false })); // no refund
+  store.upsert('ratings', { playerId: p.id, date: '2026-11-01', scores: { dribbling: 3 } });
+
+  eq(bookings.refundsDueForPlayer(store.getAll('bookings'), p.id).map((b) => b.id), [paid.id]);
+  eq(playerDependents(p.id).refundsDue.map((b) => b.id), [paid.id]);
+  eq(deletePlayer(p.id), false, 'refused');
+  assert(store.get('players', p.id), 'player kept');
+  eq(store.getAll('bookings').length, 2);
+  eq(store.getAll('ratings').length, 1);
+
+  store.upsert('bookings', bookings.markRefunded(store.get('bookings', paid.id)));
+  eq(playerDependents(p.id).refundsDue, []);
+  assert(deletePlayer(p.id), 'allowed once refunded');
+  eq(store.get('players', p.id), null);
+  eq(store.getAll('bookings').length, 0);
 });
 
 test('actions: deleteDrill removes from plans; renameAgeGroup updates refs', () => {

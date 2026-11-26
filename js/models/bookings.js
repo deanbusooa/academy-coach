@@ -58,6 +58,11 @@ export function refundsDueTotal(bookings) {
   return Math.round(refundsDue(bookings).reduce((sum, b) => sum + (b.price || 0), 0) * 100) / 100;
 }
 
+/** A player's outstanding refunds (they block permanent delete). */
+export function refundsDueForPlayer(bookings, playerId) {
+  return refundsDue(bookings.filter((b) => b.playerId === playerId));
+}
+
 /** Cancelled bookings whose payment still has to be returned, oldest first. */
 export function refundsDue(bookings) {
   return sortBookings(bookings.filter((b) => isCancelled(b) && b.refundDue));
