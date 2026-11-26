@@ -13,8 +13,9 @@ function stubShare() {
   });
 }
 
-test('phone: Export backup opens the share sheet with the JSON file', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'phone', 'touch devices only');
+test('touch devices: Export backup opens the share sheet with the JSON file', async ({ page }, testInfo) => {
+  // Runs on every touch project (Android Chromium and iPhone WebKit).
+  test.skip(!testInfo.project.use.hasTouch, 'touch devices only; desktop is covered by the download test');
   await page.addInitScript(stubShare);
   await loadDemo(page);
   expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
@@ -34,7 +35,7 @@ test('phone: Export backup opens the share sheet with the JSON file', async ({ p
 });
 
 test('desktop: Export backup downloads even when share is available', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop', 'desktop only');
+  test.skip(testInfo.project.use.hasTouch, 'desktop only; touch devices use the share sheet (test above)');
   await page.addInitScript(stubShare);
   await loadDemo(page);
   await page.goto('/#/settings');

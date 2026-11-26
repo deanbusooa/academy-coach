@@ -2,7 +2,8 @@
 import { test, expect } from '@playwright/test';
 
 test('unit tests pass in the browser runner', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop', 'once is enough');
+  // Once per engine: Chromium (desktop) and WebKit (iphone). `phone` is Chromium again.
+  test.skip(testInfo.project.name === 'phone', 'same engine as desktop (Chromium)');
   await page.goto('/tests/index.html');
   const summary = page.locator('#summary');
   await expect(summary).toHaveText(/^\d+\/\d+ passed$/);

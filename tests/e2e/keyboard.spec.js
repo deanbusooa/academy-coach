@@ -2,9 +2,10 @@
 import { test, expect } from '@playwright/test';
 import { trackErrors, loadDemo } from './helpers.js';
 
-test.beforeEach(({}, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop', 'keyboard tests run on desktop');
-});
+// The two Tab-driven tests run on desktop Chromium only. The dialog stacking
+// and reduced-motion tests aren't keyboard-specific, so they run everywhere.
+const desktopKeyboardOnly = (testInfo) =>
+  test.skip(testInfo.project.name !== 'desktop', "keyboard Tab order: desktop only (WebKit/Safari doesn't Tab to buttons by default)");
 
 const activeKey = (page) => page.evaluate(() => document.activeElement?.dataset?.focusKey ?? document.activeElement?.tagName ?? null);
 
@@ -25,7 +26,8 @@ async function openUpcomingSession(page) {
   await expect(page.getByRole('heading', { level: 2, name: 'Passing & receiving' })).toBeVisible();
 }
 
-test('register can be taken with the keyboard; focus stays on the tile', async ({ page }) => {
+test('register can be taken with the keyboard; focus stays on the tile', async ({ page }, testInfo) => {
+  desktopKeyboardOnly(testInfo);
   const errs = trackErrors(page);
   await openUpcomingSession(page);
 
@@ -66,7 +68,8 @@ test('register can be taken with the keyboard; focus stays on the tile', async (
   errs.expectNone();
 });
 
-test('modal makes the page inert, traps Tab, and Escape returns focus', async ({ page }) => {
+test('modal makes the page inert, traps Tab, and Escape returns focus', async ({ page }, testInfo) => {
+  desktopKeyboardOnly(testInfo);
   await openUpcomingSession(page);
   await tabTo(page, 'edit');
   await page.keyboard.press('Enter');
