@@ -4,6 +4,7 @@
 import * as store from './store.js';
 import { todayISO, nowTime } from './utils/date.js';
 import { upcomingForPlayer, cancelBooking } from './models/bookings.js';
+import { ratingOn } from './models/ratings.js';
 
 /** Delete a player and everything that references them. */
 export function deletePlayer(playerId) {
@@ -43,6 +44,31 @@ export function archivePlayer(playerId, { today = todayISO(), time = nowTime() }
     store.upsert('players', { ...player, archived: true });
     for (const b of upcoming) store.upsert('bookings', cancelBooking(b));
   });
+}
+
+/**
+ * Save a rating, keeping one per player per date: if another rating exists
+ * for that player and date, it is replaced (same id) instead of adding a
+ * second point. Editing a rating onto another one's date merges them.
+ * Older duplicates for that date are removed too.
+ * @returns {{ saved: object, replaced: boolean } | null} null if the save failed
+ */
+export function saveRating(rec) {
+  const all = store.getAll('ratings');
+  const sameDay = all.filter((r) => r.playerId === rec.playerId && r.date === rec.date && r.id !== rec.id);
+  if (!sameDay.length) {
+    const saved = store.upsert('ratings', rec);
+    return saved ? { saved, replaced: false } : null;
+  }
+  const keep = ratingOn(all, rec.playerId, rec.date, rec.id);
+  let saved = null;
+  const ok = store.batch(() => {
+    saved = store.upsert('ratings', { ...rec, id: keep.id, createdAt: keep.createdAt });
+    const drop = new Set(sameDay.map((r) => r.id).filter((id) => id !== keep.id));
+    if (rec.id && rec.id !== keep.id) drop.add(rec.id);
+    if (drop.size) store.removeWhere('ratings', (r) => drop.has(r.id));
+  });
+  return ok ? { saved: store.get('ratings', keep.id), replaced: true } : null;
 }
 
 /** Delete a drill and remove it from any session plans. */

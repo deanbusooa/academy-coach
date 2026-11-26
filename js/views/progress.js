@@ -12,9 +12,10 @@ import { todayISO, formatDate, formatShortDate } from '../utils/date.js';
 import { sortPlayers } from '../models/players.js';
 import {
   SKILLS, MAX_SCORE, normalizeRating, validateRating, ratingsForPlayer, trendSeries, latestScores,
-  average, changeSinceFirst, uniqueDates,
+  average, changeSinceFirst, uniqueDates, ratingOn,
 } from '../models/ratings.js';
 import { skillBar } from './player-detail.js';
+import { saveRating } from '../actions.js';
 import { pageHead, backLink, emptyState, avatar, filterChips, listItemLink, rerenderView } from './shared.js';
 
 const ui = { ageGroup: '', hidden: new Set() };
@@ -158,6 +159,17 @@ export function openRatingForm(playerId, rating = null) {
   const notes = h('textarea', { class: 'textarea', rows: 2, placeholder: 'What went well, what to work on…' }, rating?.notes || '');
   const errorEl = h('p', { class: 'error', hidden: true, style: { color: 'var(--c-bad)', fontWeight: 600 } });
 
+  // One rating per player per date: warn when the chosen date already has one.
+  const dateHint = h('p', { class: 'hint-line warn-text', hidden: true, role: 'status' });
+  const updateDateHint = () => {
+    const other = ratingOn(store.getAll('ratings'), playerId, dateInput.value, rating?.id);
+    dateHint.hidden = !other;
+    dateHint.textContent = other ? `${player?.name || 'This player'} already has a rating on ${formatDate(other.date)}. Saving replaces it.` : '';
+  };
+  dateInput.addEventListener('input', updateDateHint);
+  dateInput.addEventListener('change', updateDateHint);
+  updateDateHint();
+
   const rows = SKILLS.map((s) => {
     const btns = [1, 2, 3, 4, 5].map((n) => h('button', {
       type: 'button', class: 'score-btn', 'aria-label': `${s.label} ${n}`,
@@ -178,7 +190,7 @@ export function openRatingForm(playerId, rating = null) {
   const m = openModal({
     title: `${isEdit ? 'Edit rating' : 'Rate'} · ${player?.name || ''}`,
     body: [
-      h('div', { class: 'field' }, h('label', { for: 'rating-date' }, 'Date'), dateInput),
+      h('div', { class: 'field' }, h('label', { for: 'rating-date' }, 'Date'), dateInput, dateHint),
       h('p', { class: 'muted hint-line' }, isEdit ? '1 = needs lots of work · 5 = excellent' : '1 = needs lots of work · 5 = excellent. Pre-filled from last time; tap a score again to clear it.'),
       h('div', { class: 'score-grid' }, rows),
       h('div', { class: 'field' }, h('label', {}, 'Notes'), notes),
@@ -192,9 +204,12 @@ export function openRatingForm(playerId, rating = null) {
     const errors = validateRating(rec);
     const msg = Object.values(errors)[0];
     if (msg) { errorEl.textContent = msg; errorEl.hidden = false; return; }
-    if (!store.upsert('ratings', rec)) return; // save-error toast already shown; keep form open
+    const result = saveRating(rec); // replaces any other rating on the same date
+    if (!result) return; // save-error toast already shown; keep form open
     m.close();
-    toast(isEdit ? 'Rating updated' : `Rated ${player?.name || ''} for ${formatShortDate(rec.date)}`);
+    toast(result.replaced
+      ? `Replaced ${player?.name || ''}'s rating for ${formatShortDate(rec.date)}`
+      : isEdit ? 'Rating updated' : `Rated ${player?.name || ''} for ${formatShortDate(rec.date)}`);
   });
 
   del?.addEventListener('click', async () => {

@@ -11,7 +11,7 @@ import * as bookings from '../js/models/bookings.js';
 import * as ratings from '../js/models/ratings.js';
 import * as store from '../js/store.js';
 import { validateBackup, buildBackup, backupToState, backupFilename, exportBackup } from '../js/backup.js';
-import { deletePlayer, deleteDrill, renameAgeGroup, archivePlayer } from '../js/actions.js';
+import { deletePlayer, deleteDrill, renameAgeGroup, archivePlayer, saveRating } from '../js/actions.js';
 import { loadDemoData } from '../js/demo.js';
 import { parseHash, matchRoute, href } from '../js/router.js';
 
@@ -316,6 +316,56 @@ test('ratings: trend series, latest, change', () => {
   eq(ratings.latestScores(mine), { dribbling: 4, passing: 3 });
   eq(ratings.changeSinceFirst(mine), { dribbling: 2 });
   eq(ratings.average({ dribbling: 4, passing: 3 }), 3.5);
+});
+
+test('ratings: one per player per date — saving on a used date replaces it (regression)', () => {
+  store.init({ storage: memoryStorage() });
+  const R = (date, dribbling, extra = {}) => ratings.normalizeRating({ playerId: 'p', date, scores: { dribbling }, ...extra });
+
+  const first = saveRating(R('2026-11-20', 2));
+  eq(first.replaced, false);
+  const again = saveRating(R('2026-11-20', 4, { notes: 'second go' }));
+  eq(again.replaced, true);
+  eq(again.saved.id, first.saved.id, 'same record, not a new point');
+  eq(store.getAll('ratings').length, 1);
+  eq(store.get('ratings', first.saved.id).scores, { dribbling: 4 });
+  eq(store.get('ratings', first.saved.id).notes, 'second go');
+
+  // Other players and other dates are unaffected.
+  saveRating(ratings.normalizeRating({ playerId: 'q', date: '2026-11-20', scores: { passing: 3 } }));
+  const later = saveRating(R('2026-11-27', 5));
+  eq(later.replaced, false);
+  eq(store.getAll('ratings').length, 3);
+
+  // Editing the 27th onto the 20th merges them: one rating left on the 20th, with the edited scores.
+  const moved = saveRating({ ...store.get('ratings', later.saved.id), date: '2026-11-20' });
+  eq(moved.replaced, true);
+  const mine = store.getAll('ratings').filter((r) => r.playerId === 'p');
+  eq(mine.length, 1);
+  eq([mine[0].date, mine[0].scores.dribbling], ['2026-11-20', 5]);
+
+  // Editing a rating on its own date is a plain update.
+  eq(saveRating({ ...mine[0], notes: 'x' }).replaced, false);
+  eq(store.getAll('ratings').filter((r) => r.playerId === 'p').length, 1);
+});
+
+test('ratings: legacy duplicates on a date collapse to the latest saved', () => {
+  const list = [
+    { id: 'a', playerId: 'p', date: '2026-11-20', scores: { dribbling: 2 }, updatedAt: '2026-11-20T10:00:00Z' },
+    { id: 'b', playerId: 'p', date: '2026-11-20', scores: { dribbling: 4 }, updatedAt: '2026-11-20T18:00:00Z' },
+    { id: 'c', playerId: 'p', date: '2026-11-27', scores: { dribbling: 5 } },
+  ];
+  eq(ratings.ratingsForPlayer(list, 'p').map((r) => r.id), ['b', 'c']);
+  eq(ratings.trendSeries(ratings.ratingsForPlayer(list, 'p'))[0].points, [{ x: '2026-11-20', y: 4 }, { x: '2026-11-27', y: 5 }]);
+  eq(ratings.ratingOn(list, 'p', '2026-11-20').id, 'b');
+  eq(ratings.ratingOn(list, 'p', '2026-11-20', 'b').id, 'a', 'ignores the one being edited');
+  eq(ratings.ratingOn(list, 'p', '2026-11-21'), null);
+
+  // saveRating on that date also removes the stale duplicate.
+  store.init({ storage: memoryStorage() });
+  store.replaceAll({ schemaVersion: 1, ratings: list });
+  saveRating(ratings.normalizeRating({ playerId: 'p', date: '2026-11-20', scores: { dribbling: 3 } }));
+  eq(store.getAll('ratings').filter((r) => r.date === '2026-11-20').map((r) => r.scores.dribbling), [3]);
 });
 
 // ---------- store ----------

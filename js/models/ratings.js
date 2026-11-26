@@ -45,10 +45,26 @@ export function validateRating(r) {
   return errors;
 }
 
+/**
+ * A player's ratings, oldest first, at most one per date. Older data may hold
+ * duplicates for a date; the most recently saved one wins, so the chart,
+ * history and averages agree.
+ */
 export function ratingsForPlayer(ratings, playerId) {
-  return ratings
-    .filter((r) => r.playerId === playerId)
-    .sort((a, b) => compareISO(a.date, b.date) || (a.createdAt || '').localeCompare(b.createdAt || ''));
+  const byDate = new Map();
+  for (const r of ratings) {
+    if (r.playerId !== playerId) continue;
+    const seen = byDate.get(r.date);
+    if (!seen || savedAt(r) >= savedAt(seen)) byDate.set(r.date, r);
+  }
+  return [...byDate.values()].sort((a, b) => compareISO(a.date, b.date));
+}
+
+const savedAt = (r) => r.updatedAt || r.createdAt || '';
+
+/** The player's rating on `date`, ignoring `exceptId` (the one being edited). */
+export function ratingOn(ratings, playerId, date, exceptId = null) {
+  return ratingsForPlayer(ratings.filter((r) => r.id !== exceptId), playerId).find((r) => r.date === date) ?? null;
 }
 
 export function average(scores) {

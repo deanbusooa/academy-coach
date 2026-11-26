@@ -151,3 +151,36 @@ test('player notes do not prompt for medical details', async ({ page }) => {
   expect(await notes.getAttribute('placeholder')).not.toMatch(/medical|health|allerg|condition/i);
   await expect(page.getByRole('dialog')).toContainText('unencrypted');
 });
+
+test('rating twice on the same date replaces it instead of adding a point (regression)', async ({ page }) => {
+  await loadDemo(page);
+  const leo = (await savedState(page)).players.find((p) => p.name === 'Leo Martins');
+  const count = async () => (await savedState(page)).ratings.filter((r) => r.playerId === leo.id).length;
+  await page.goto(`/#/progress/${leo.id}`);
+  const before = await count();
+
+  const history = page.locator('.section-label', { hasText: 'History' }).locator('xpath=following-sibling::ul[1]/li');
+  await expect(history).toHaveCount(before);
+
+  await page.getByRole('button', { name: 'Rate now' }).click();
+  let dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: 'Shooting 2' }).click();
+  await dialog.getByRole('button', { name: 'Save rating' }).click();
+  await expect(history).toHaveCount(before + 1);
+
+  // Same date again: the form warns, and saving replaces.
+  await page.getByRole('button', { name: 'Rate now' }).click();
+  dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('already has a rating on');
+  await dialog.getByRole('button', { name: 'Shooting 5' }).click();
+  await dialog.getByRole('button', { name: 'Save rating' }).click();
+  await expect(page.getByText(/Replaced Leo Martins's rating/)).toBeVisible();
+  await expect(history).toHaveCount(before + 1);
+  expect(await count()).toBe(before + 1);
+
+  const today = (await savedState(page)).ratings.filter((r) => r.playerId === leo.id).at(-1);
+  expect(today.scores.shooting).toBe(5);
+  // One dot per date on the shooting line.
+  const dots = await page.locator('.chart-series').nth(3).locator('.chart-dot').count();
+  expect(dots).toBe(before + 1);
+});
