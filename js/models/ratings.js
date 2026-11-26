@@ -95,6 +95,23 @@ export function latestScores(playerRatings) {
 }
 
 /** Change per skill between the first and the latest score. */
+/** What the anchor scores mean, shown under the 1–5 scale so coaches rate consistently. */
+export const RUBRIC = [
+  { score: 1, text: 'Rarely manages it, even unopposed' },
+  { score: 3, text: 'Reliable in drills; sometimes in games' },
+  { score: 5, text: 'Consistent in games, under pressure' },
+];
+
+/** Change per skill between the previous and the latest time it was scored. */
+export function changeSinceLast(playerRatings) {
+  const out = {};
+  for (const s of trendSeries(playerRatings)) {
+    const p = s.points;
+    if (p.length >= 2) out[s.key] = p[p.length - 1].y - p[p.length - 2].y;
+  }
+  return out;
+}
+
 export function changeSinceFirst(playerRatings) {
   const series = trendSeries(playerRatings);
   const out = {};

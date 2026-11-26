@@ -389,6 +389,18 @@ test('ratings: legacy duplicates on a date collapse to the latest saved', () => 
   eq(store.getAll('ratings').filter((r) => r.date === '2026-11-20').map((r) => r.scores.dribbling), [3]);
 });
 
+test('ratings: change since last vs since first; rubric anchors', () => {
+  const rs = [
+    { playerId: 'p', date: '2026-09-01', scores: { dribbling: 2, passing: 3 } },
+    { playerId: 'p', date: '2026-10-01', scores: { dribbling: 4 } },              // passing not observed
+    { playerId: 'p', date: '2026-11-01', scores: { dribbling: 3, passing: 4 } },
+  ];
+  eq(ratings.changeSinceFirst(rs), { dribbling: 1, passing: 1 });
+  eq(ratings.changeSinceLast(rs), { dribbling: -1, passing: 1 }, 'last = previous time that skill was scored');
+  eq(ratings.changeSinceLast(rs.slice(0, 1)), {});
+  eq(ratings.RUBRIC.map((r) => r.score), [1, 3, 5]);
+});
+
 // ---------- store ----------
 
 test('store: CRUD persists and notifies', () => {

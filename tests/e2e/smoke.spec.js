@@ -79,7 +79,7 @@ test('coach workflow: roster → session → register → 1-1 → rating → bac
   await dialog.getByRole('button', { name: 'Dribbling 4' }).click();
   await dialog.getByRole('button', { name: 'Save rating' }).click();
   await expect(page.locator('.chart .chart-line')).toHaveCount(1);
-  await expect(page.locator('.delta.up')).toHaveText('+2');
+  await expect(page.locator('.delta.up')).toHaveText(['+2', '+2']); // dribbling: vs last, vs first
 
   // --- Export → reset → import restores everything.
   const before = await savedState(page);

@@ -12,7 +12,7 @@ import { todayISO, formatDate, formatShortDate } from '../utils/date.js';
 import { sortPlayers } from '../models/players.js';
 import {
   SKILLS, MAX_SCORE, normalizeRating, validateRating, ratingsForPlayer, trendSeries, latestScores,
-  average, changeSinceFirst, uniqueDates, ratingOn,
+  average, changeSinceFirst, changeSinceLast, uniqueDates, ratingOn, RUBRIC,
 } from '../models/ratings.js';
 import { skillBar } from './player-detail.js';
 import { saveRating } from '../actions.js';
@@ -78,6 +78,7 @@ function renderPlayer(container, playerId) {
   const ratings = ratingsForPlayer(store.getAll('ratings'), playerId);
   const latest = latestScores(ratings);
   const change = changeSinceFirst(ratings);
+  const changeLast = changeSinceLast(ratings);
   const dates = uniqueDates(ratings);
 
   container.append(
@@ -102,14 +103,20 @@ function renderPlayer(container, playerId) {
     h('div', { class: 'card-head' },
       h('h3', {}, 'Current level'),
       h('span', { class: 'score-pill' }, round1(average(latest) ?? 0).toFixed(1))),
-    h('div', { class: 'skill-bars' }, SKILLS.map((s) => {
-      const bar = skillBar(s, latest[s.key]);
-      const d = change[s.key];
-      if (d) bar.append(h('span', { class: ['delta', d > 0 ? 'up' : 'down'] }, `${d > 0 ? '+' : ''}${d}`));
-      else bar.append(h('span', { class: 'delta' }));
-      return bar;
-    })),
-    Object.keys(change).length ? h('p', { class: 'muted hint-line' }, `Change since first rating on ${formatDate(ratings[0].date)}`) : null,
+    h('div', { class: 'skill-bars' },
+      Object.keys(change).length ? h('div', { class: 'skill-bar skill-bar-head', 'aria-hidden': 'true' },
+        h('span'), h('span'), h('span'),
+        h('span', { class: 'deltas' }, h('span', {}, 'vs last'), h('span', {}, 'vs first'))) : null,
+      SKILLS.map((s) => {
+        const bar = skillBar(s, latest[s.key]);
+        bar.append(h('span', { class: 'deltas' },
+          deltaCell(changeLast[s.key], `${s.label} since last rating`),
+          deltaCell(change[s.key], `${s.label} since first rating`)));
+        return bar;
+      })),
+    Object.keys(change).length
+      ? h('p', { class: 'muted hint-line' }, `Change since the last rating, and since the first on ${formatDate(ratings[0].date)}. Only skills that were scored count.`)
+      : null,
   ));
 
   // Trend chart
@@ -146,14 +153,22 @@ function renderPlayer(container, playerId) {
         h('span', { class: 'score-pill' }, round1(average(r.scores) ?? 0).toFixed(1)))))));
 }
 
+/** One change figure: +n / −n / 0, or blank when the skill wasn't scored twice. */
+function deltaCell(d, label) {
+  if (d === undefined) return h('span', { class: 'delta' });
+  const text = d > 0 ? `+${d}` : d < 0 ? `−${Math.abs(d)}` : '0';
+  return h('span', { class: ['delta', d > 0 && 'up', d < 0 && 'down'], title: label, 'aria-label': `${label}: ${text}` }, text);
+}
+
 // ---------- rating form ----------
 
 export function openRatingForm(playerId, rating = null) {
   const player = store.get('players', playerId);
   const isEdit = Boolean(rating);
-  // Pre-fill a new rating with the latest scores so the coach only adjusts what changed.
-  const prev = latestScores(ratingsForPlayer(store.getAll('ratings'), playerId));
-  const scores = { ...(rating ? rating.scores : prev) };
+  // A rating records only what was observed this time. New ratings start with
+  // every skill "Not observed"; the previous score is shown as a hint, never saved.
+  const prev = latestScores(ratingsForPlayer(store.getAll('ratings').filter((r) => r.id !== rating?.id), playerId));
+  const scores = { ...(rating ? rating.scores : {}) };
 
   const dateInput = h('input', { class: 'input', type: 'date', value: rating?.date || todayISO(), required: true, id: 'rating-date' });
   const notes = h('textarea', { class: 'textarea', rows: 2, placeholder: 'What went well, what to work on…' }, rating?.notes || '');
@@ -171,16 +186,26 @@ export function openRatingForm(playerId, rating = null) {
   updateDateHint();
 
   const rows = SKILLS.map((s) => {
+    const status = h('span', { class: 'score-status' });
+    const showStatus = () => {
+      status.textContent = scores[s.key] ? '' : 'Not observed';
+      status.hidden = Boolean(scores[s.key]);
+    };
     const btns = [1, 2, 3, 4, 5].map((n) => h('button', {
       type: 'button', class: 'score-btn', 'aria-label': `${s.label} ${n}`,
       'aria-pressed': String(scores[s.key] === n),
       onclick: () => {
-        scores[s.key] = scores[s.key] === n ? undefined : n; // tap again to clear
+        scores[s.key] = scores[s.key] === n ? undefined : n; // tap again: back to "Not observed"
         btns.forEach((b, i) => b.setAttribute('aria-pressed', String(scores[s.key] === i + 1)));
+        showStatus();
       },
     }, String(n)));
-    return h('div', { class: 'score-row' },
-      h('span', { class: 'score-label' }, h('span', { class: 'legend-dot', style: { '--dot': s.color } }), s.label),
+    showStatus();
+    return h('div', { class: 'score-row', dataset: { skill: s.key } },
+      h('span', { class: 'score-label' },
+        h('span', { class: 'legend-dot', style: { '--dot': s.color } }), s.label,
+        prev[s.key] ? h('span', { class: 'score-last', title: 'Score at the previous rating (not saved again)' }, `Last: ${prev[s.key]}`) : null,
+        status),
       h('div', { class: 'score-btns', role: 'group', 'aria-label': s.label }, btns));
   });
 
@@ -191,8 +216,10 @@ export function openRatingForm(playerId, rating = null) {
     title: `${isEdit ? 'Edit rating' : 'Rate'} · ${player?.name || ''}`,
     body: [
       h('div', { class: 'field' }, h('label', { for: 'rating-date' }, 'Date'), dateInput, dateHint),
-      h('p', { class: 'muted hint-line' }, isEdit ? '1 = needs lots of work · 5 = excellent' : '1 = needs lots of work · 5 = excellent. Pre-filled from last time; tap a score again to clear it.'),
+      h('p', { class: 'muted hint-line' }, 'Score only what you saw this session. Leave the rest as "Not observed"; tap a score again to clear it.'),
       h('div', { class: 'score-grid' }, rows),
+      h('dl', { class: 'rubric', 'aria-label': 'What the scores mean' },
+        RUBRIC.map((r) => [h('dt', {}, String(r.score)), h('dd', {}, r.text)])),
       h('div', { class: 'field' }, h('label', {}, 'Notes'), notes),
       errorEl,
     ],

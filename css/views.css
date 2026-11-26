@@ -81,6 +81,11 @@
 .skill-fill { display: block; height: 100%; border-radius: var(--r-pill); transition: width 0.3s ease; }
 .skill-value { font-weight: 700; text-align: right; font-family: var(--font-head); font-size: 1.05rem; }
 .delta { min-width: 28px; font-weight: 700; font-size: 0.8rem; text-align: right; }
+.deltas { display: grid; grid-template-columns: 40px 40px; gap: 2px; }
+.skill-bar-head .deltas span {
+  font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.03em; color: var(--c-muted); text-align: right;
+}
 .delta.up { color: var(--c-ok); }
 .delta.down { color: var(--c-bad); }
 
@@ -339,7 +344,19 @@
 
 .score-grid { display: grid; gap: var(--s-3); margin: var(--s-3) 0 var(--s-4); }
 .score-row { display: grid; gap: var(--s-1); }
-.score-label { display: flex; align-items: center; gap: var(--s-2); font-weight: 700; }
+.score-label { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s-2); font-weight: 700; }
+.score-last {
+  font-size: 0.75rem; font-weight: 600; color: var(--c-muted);
+  padding: 1px 8px; border: 1px dashed var(--c-border); border-radius: var(--r-pill);
+}
+.score-status { font-size: 0.75rem; font-weight: 600; color: var(--c-muted); font-style: italic; }
+.rubric {
+  display: grid; grid-template-columns: max-content 1fr; gap: 2px var(--s-3);
+  margin: 0 0 var(--s-4); padding: var(--s-2) var(--s-3);
+  background: var(--c-surface-2); border-radius: var(--r-sm); font-size: var(--fs-sm);
+}
+.rubric dt { font-family: var(--font-head); font-weight: 700; }
+.rubric dd { margin: 0; color: var(--c-muted); }
 .score-btns { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
 .score-btn {
   min-height: 46px;
