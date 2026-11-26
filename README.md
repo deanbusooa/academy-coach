@@ -33,7 +33,7 @@ npm run test:e2e             # browser tests: phone and desktop layouts
 npm run test:all             # both
 ```
 
-The browser tests need a Chromium. Run `npx playwright install chromium` once, or reuse your installed Chrome with `PW_CHANNEL=chrome npm run test:e2e`.
+The browser tests run on Chromium (Android phone and desktop layouts) and WebKit (the Safari engine, iPhone layout). Run `npx playwright install chromium webkit` once. To use your installed Chrome for the Chromium runs instead, run `PW_CHANNEL=chrome npm run test:e2e`.
 
 They cover the full coach workflow (including backup and restore), offline loading, two open tabs, keyboard-only use of the register, archiving, and age-group rules. You can also open `/tests/index.html` in the browser while the app is served, to run the unit tests there.
 

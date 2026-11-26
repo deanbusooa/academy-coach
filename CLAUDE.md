@@ -9,7 +9,7 @@ Plain HTML/CSS/vanilla JS (ES modules). **No frameworks, no dependencies, no bui
   `npm start` (= `npx serve -l 8080 .`) or `python -m http.server 8080`, then open http://localhost:8080
 - Unit tests: `npm test` (Node, no deps) or open `/tests/index.html` in the browser. Tests use in-memory storage.
   `tests/node-only.js` holds checks that read the source tree (e.g. `sw.js` ASSETS vs files on disk) and only runs under `npm test`.
-- Browser tests (Playwright, the only devDependency): `npm run test:e2e`. Specs live in `tests/e2e/*.spec.js` and run on a `phone` (Pixel 7) and a `desktop` project. Locally, `PW_CHANNEL=chrome npm run test:e2e` uses your installed Chrome; otherwise run `npx playwright install chromium` once. The service worker is blocked by default; the offline test opts in with `test.use({ serviceWorkers: 'allow' })`.
+- Browser tests (Playwright, the only devDependency): `npm run test:e2e`. Specs live in `tests/e2e/*.spec.js` and run on `phone` (Pixel 7, Chromium), `desktop` (Chromium) and `iphone` (iPhone 14, WebKit) projects. Run `npx playwright install chromium webkit` once; `PW_CHANNEL=chrome` swaps in your installed Chrome for the Chromium projects. The service worker is blocked by default; the offline test opts in with `test.use({ serviceWorkers: 'allow' })`.
 - CI (`.github/workflows/ci.yml`) runs both suites on every push/PR.
 - Settings → "Load demo data" seeds a sample squad. Only offered (and only allowed) when every collection is empty (`store.isEmpty()`).
 

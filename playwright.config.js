@@ -1,5 +1,6 @@
 // End-to-end tests (real browser). Run: npm run test:e2e
-// Locally you can reuse an installed Chrome instead of downloading Chromium:
+// Projects: phone (Pixel 7, Chromium), desktop (Chromium), iphone (iPhone 14, WebKit).
+// Locally you can reuse an installed Chrome for the Chromium projects:
 //   PW_CHANNEL=chrome npm run test:e2e
 import { defineConfig, devices } from '@playwright/test';
 
@@ -18,11 +19,13 @@ export default defineConfig({
     // The SW would serve cached files between runs; tests that need it opt in.
     serviceWorkers: 'block',
     trace: 'retain-on-failure',
-    channel,
   },
+  // `channel` (e.g. local Chrome) only applies to the Chromium projects.
   projects: [
     { name: 'phone', use: { ...devices['Pixel 7'], channel } },
     { name: 'desktop', use: { ...devices['Desktop Chrome'], channel } },
+    // Safari engine on an iPhone layout: most coaches using a home-screen app are on iOS.
+    { name: 'iphone', use: { ...devices['iPhone 14'] } },
   ],
   webServer: {
     command: `node tests/e2e/serve.mjs ${PORT}`,
