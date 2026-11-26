@@ -135,6 +135,31 @@ test('players: archiving keeps history; edit form round-trip keeps flag', () => 
   eq(edited.archived, true);
 });
 
+test('age group removal: counts active vs archived and explains (regression)', () => {
+  const list = [
+    { ageGroup: 'U9' }, { ageGroup: 'U9' }, { ageGroup: 'U9', archived: true },
+    { ageGroup: 'U11', archived: true },
+    { ageGroup: 'U12' },
+  ];
+  eq(players.ageGroupUsage(list, 'U9'), { active: 2, archived: 1 });
+  eq(players.ageGroupUsage(list, 'U11'), { active: 0, archived: 1 });
+  eq(players.ageGroupUsage(list, 'U7'), { active: 0, archived: 0 });
+
+  eq(players.ageGroupUsageLabel({ active: 2, archived: 1 }), '2 players · 1 archived');
+  eq(players.ageGroupUsageLabel({ active: 1, archived: 0 }), '1 player');
+  eq(players.ageGroupUsageLabel({ active: 0, archived: 0 }), '0 players');
+
+  eq(players.ageGroupRemovalBlocker('U7', { active: 0, archived: 0 }), null);
+  const both = players.ageGroupRemovalBlocker('U9', { active: 2, archived: 1 });
+  assert(both.startsWith('U9 still has 2 active players and 1 archived player.'), both);
+  assert(/move the active players to another age group/.test(both) && /archived player \(Players → Archived\)/.test(both), both);
+  // Only archived players: the case that used to be a mystery ("0 players" but can't delete).
+  const archivedOnly = players.ageGroupRemovalBlocker('U11', { active: 0, archived: 1 });
+  eq(archivedOnly, 'U11 still has 1 archived player. To remove U11, first move or permanently delete the archived player (Players → Archived).');
+  const activeOnly = players.ageGroupRemovalBlocker('U12', { active: 1, archived: 0 });
+  eq(activeOnly, 'U12 still has 1 active player. To remove U12, first move the active player to another age group (Players → player → Edit).');
+});
+
 test('players: telHref strips formatting', () => {
   eq(players.telHref('+44 (0)7700 900-101'), 'tel:+4407700900101');
   eq(players.telHref(''), null);

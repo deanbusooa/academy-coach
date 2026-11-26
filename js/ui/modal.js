@@ -82,10 +82,11 @@ export function openModal({ title, body, footer, onClose }) {
 }
 
 /** Promise-based confirmation dialog. */
-export function confirmDialog({ title = 'Are you sure?', message = '', confirmLabel = 'Confirm', danger = false } = {}) {
+/** Pass cancelLabel: null for a single-button notice. */
+export function confirmDialog({ title = 'Are you sure?', message = '', confirmLabel = 'Confirm', cancelLabel = 'Cancel', danger = false } = {}) {
   return new Promise((resolve) => {
     let result = false;
-    const cancel = h('button', { class: 'btn', type: 'button' }, 'Cancel');
+    const cancel = cancelLabel ? h('button', { class: 'btn', type: 'button' }, cancelLabel) : null;
     const ok = h('button', { class: ['btn', danger ? 'btn-danger' : 'btn-pitch'], type: 'button' }, confirmLabel);
     const m = openModal({
       title,
@@ -93,7 +94,7 @@ export function confirmDialog({ title = 'Are you sure?', message = '', confirmLa
       footer: h('div', { class: 'form-actions' }, cancel, ok),
       onClose: () => resolve(result),
     });
-    cancel.addEventListener('click', () => m.close());
+    cancel?.addEventListener('click', () => m.close());
     ok.addEventListener('click', () => { result = true; m.close(); });
     requestAnimationFrame(() => ok.focus());
   });

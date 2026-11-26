@@ -59,6 +59,39 @@ export function telHref(phone) {
   return digits ? `tel:${digits}` : null;
 }
 
+/** How many active and archived players are in an age group. */
+export function ageGroupUsage(players, group) {
+  let active = 0;
+  let archived = 0;
+  for (const p of players) {
+    if (p.ageGroup !== group) continue;
+    if (p.archived) archived++; else active++;
+  }
+  return { active, archived };
+}
+
+/**
+ * Why an age group can't be removed yet, in words a coach can act on, or null.
+ * Archived players still belong to their group, so they block removal too.
+ */
+export function ageGroupRemovalBlocker(group, { active, archived }) {
+  if (!active && !archived) return null;
+  const n = (count, word) => `${count} ${word} player${count === 1 ? '' : 's'}`;
+  const who = [active && n(active, 'active'), archived && n(archived, 'archived')].filter(Boolean).join(' and ');
+  const steps = [];
+  if (active) steps.push(`move the active ${active === 1 ? 'player' : 'players'} to another age group (Players → player → Edit)`);
+  if (archived) {
+    steps.push(`${active ? 'and ' : ''}move or permanently delete the archived ${archived === 1 ? 'player' : 'players'} (Players → Archived)`);
+  }
+  return `${group} still has ${who}. To remove ${group}, first ${steps.join(', ')}.`;
+}
+
+/** Short label for a group's player count, e.g. "3 players · 1 archived". */
+export function ageGroupUsageLabel({ active, archived }) {
+  const main = `${active} player${active === 1 ? '' : 's'}`;
+  return archived ? `${main} · ${archived} archived` : main;
+}
+
 export function countByAgeGroup(players) {
   const out = {};
   for (const p of players) out[p.ageGroup] = (out[p.ageGroup] || 0) + 1;

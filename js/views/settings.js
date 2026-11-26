@@ -8,7 +8,7 @@ import { confirmDialog } from '../ui/modal.js';
 import { toast } from '../ui/toast.js';
 import { CURRENCIES, plural } from '../utils/format.js';
 import { formatDate, daysBetween, todayISO, localDateOf } from '../utils/date.js';
-import { countByAgeGroup } from '../models/players.js';
+import { ageGroupUsage, ageGroupUsageLabel, ageGroupRemovalBlocker } from '../models/players.js';
 import { renameAgeGroup } from '../actions.js';
 import { exportBackup, readBackupFile, validateBackup, backupToState } from '../backup.js';
 import { loadDemoData } from '../demo.js';
@@ -89,7 +89,7 @@ async function importFile(file) {
 // ---------- age groups ----------
 
 function ageGroupsCard(settings) {
-  const counts = countByAgeGroup(store.getAll('players'));
+  const players = store.getAll('players');
   const input = h('input', { class: 'input', placeholder: 'e.g. U17 or Girls U12', 'aria-label': 'New age group', maxlength: 24 });
   const addGroup = (e) => {
     e.preventDefault();
@@ -101,20 +101,33 @@ function ageGroupsCard(settings) {
 
   return h('section', { class: 'card' },
     h('h3', {}, 'Age groups'),
-    h('ul', { class: 'list' }, settings.ageGroups.map((g, i) => h('li', {},
-      h('div', { class: 'list-item', style: { cursor: 'default' } },
-        h('div', { class: 'grow' }, h('div', { class: 'title' }, g), h('div', { class: 'sub' }, plural(counts[g] || 0, 'player'))),
-        h('button', { class: 'btn btn-ghost btn-icon btn-sm', type: 'button', 'aria-label': `Move ${g} up`, disabled: i === 0,
-          onclick: () => moveGroup(settings.ageGroups, i, -1) }, icon('arrow-up')),
-        h('button', { class: 'btn btn-ghost btn-icon btn-sm', type: 'button', 'aria-label': `Rename ${g}`,
-          onclick: () => renameGroup(g, settings.ageGroups) }, icon('edit')),
-        h('button', { class: 'btn btn-ghost btn-icon btn-sm', type: 'button', 'aria-label': `Remove ${g}`,
-          disabled: Boolean(counts[g]) || settings.ageGroups.length === 1,
-          title: counts[g] ? 'Move or delete its players first' : null,
-          onclick: () => { if (store.updateSettings({ ageGroups: settings.ageGroups.filter((x) => x !== g) })) toast(`Removed ${g}`); } }, icon('trash')))))),
+    h('ul', { class: 'list' }, settings.ageGroups.map((g, i) => {
+      const usage = ageGroupUsage(players, g);
+      return h('li', {},
+        h('div', { class: 'list-item', style: { cursor: 'default' } },
+          h('div', { class: 'grow' }, h('div', { class: 'title' }, g), h('div', { class: 'sub' }, ageGroupUsageLabel(usage))),
+          h('button', { class: 'btn btn-ghost btn-icon btn-sm', type: 'button', 'aria-label': `Move ${g} up`, disabled: i === 0,
+            dataset: { focusKey: `group-up-${g}` },
+            onclick: () => moveGroup(settings.ageGroups, i, -1) }, icon('arrow-up')),
+          h('button', { class: 'btn btn-ghost btn-icon btn-sm', type: 'button', 'aria-label': `Rename ${g}`,
+            onclick: () => renameGroup(g, settings.ageGroups) }, icon('edit')),
+          // Stays enabled when in use: a disabled button can't explain itself on touch screens.
+          h('button', { class: 'btn btn-ghost btn-icon btn-sm', type: 'button', 'aria-label': `Remove ${g}`,
+            disabled: settings.ageGroups.length === 1,
+            onclick: () => removeGroup(g, settings.ageGroups, usage) }, icon('trash'))));
+    })),
     h('form', { class: 'row', style: { marginTop: 'var(--s-3)' }, onsubmit: addGroup },
       h('div', { style: { flex: 1 } }, input),
       h('button', { class: 'btn btn-primary', type: 'submit' }, icon('plus'), 'Add')));
+}
+
+async function removeGroup(group, groups, usage) {
+  const blocker = ageGroupRemovalBlocker(group, usage);
+  if (blocker) {
+    await confirmDialog({ title: `Can't remove ${group} yet`, message: blocker, confirmLabel: 'OK', cancelLabel: null });
+    return;
+  }
+  if (store.updateSettings({ ageGroups: groups.filter((x) => x !== group) })) toast(`Removed ${group}`);
 }
 
 function moveGroup(groups, i, delta) {
