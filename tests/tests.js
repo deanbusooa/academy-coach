@@ -484,6 +484,22 @@ test('defaults: AUD currency; demo phones are +61 and valid (regression)', () =>
   }
 });
 
+test('demo data only loads into a completely empty store (regression)', () => {
+  for (const c of store.COLLECTIONS) {
+    store.init({ storage: memoryStorage() });
+    assert(store.isEmpty());
+    const seeded = store.upsert(c, { id: `real-${c}`, name: 'Real', playerId: 'x', date: '2026-11-01', startTime: '10:00', scores: { dribbling: 3 } });
+    assert(!store.isEmpty(), `${c} counts as data`);
+    eq(loadDemoData('2026-11-26'), false, `refused with existing ${c}`);
+    eq(store.getAll(c), [seeded], `${c} untouched`);
+    for (const other of store.COLLECTIONS) if (other !== c) eq(store.getAll(other).length, 0, `no demo ${other} added`);
+  }
+  store.init({ storage: memoryStorage() });
+  store.updateSettings({ currency: 'EUR' }); // settings alone don't count
+  assert(store.isEmpty());
+  assert(loadDemoData('2026-11-26'));
+});
+
 test('store: rejects data from a newer schema', () => {
   let threw = false;
   try { store.migrate({ schemaVersion: store.SCHEMA_VERSION + 1 }); } catch { threw = true; }

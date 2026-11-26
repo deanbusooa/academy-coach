@@ -126,3 +126,18 @@ test.describe('offline', () => {
     await expect(page.getByRole('heading', { name: '1-1 sessions', exact: true })).toBeVisible();
   });
 });
+
+test('demo data is only offered on a completely empty app', async ({ page }) => {
+  await page.goto('/#/settings');
+  await expect(page.getByRole('button', { name: 'Load demo data' })).toBeVisible();
+
+  // A coach who has only built a drill (no players yet) must not be offered demo data.
+  await page.goto('/#/drills');
+  await page.getByRole('button', { name: 'Add first drill' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Drill name').fill('My rondo');
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  await page.goto('/#/settings');
+  await expect(page.getByRole('heading', { name: 'Backup' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Load demo data' })).toHaveCount(0);
+});

@@ -3,7 +3,13 @@
 import * as store from './store.js';
 import { todayISO, addDays, startOfWeek } from './utils/date.js';
 
+/**
+ * Only into a completely empty store, so sample players/drills never mix with
+ * real data (e.g. a coach who has drills but no players yet).
+ * @returns {boolean} false if data already exists or the save failed
+ */
 export function loadDemoData(today = todayISO()) {
+  if (!store.isEmpty()) return false;
   return store.batch(() => {
     const P = (name, ageGroup, position, parentName, parentPhone) =>
       store.upsert('players', { name, ageGroup, position, parentName, parentPhone, parentEmail: '', notes: '' });

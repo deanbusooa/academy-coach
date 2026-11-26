@@ -272,6 +272,11 @@ export function get(collection, id) {
   return state[collection].find((r) => r.id === id) ?? null;
 }
 
+/** True when no collection holds any record (settings don't count). */
+export function isEmpty() {
+  return COLLECTIONS.every((c) => state[c].length === 0);
+}
+
 export function getSettings() {
   return { ...state.settings, ageGroups: [...state.settings.ageGroups] };
 }

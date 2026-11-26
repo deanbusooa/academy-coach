@@ -167,7 +167,7 @@ function preferencesCard(settings) {
 // ---------- demo + reset ----------
 
 function demoCard() {
-  if (store.getAll('players').length) return null;
+  if (!store.isEmpty()) return null; // only on a blank slate: demo data must not mix with real data
   return h('section', { class: 'card' },
     h('h3', {}, 'Try it out'),
     h('p', { class: 'muted' }, 'Load a small sample squad with drills, sessions, bookings and ratings. You can reset it afterwards.'),
