@@ -8,6 +8,7 @@ Plain HTML/CSS/vanilla JS (ES modules). **No frameworks, no dependencies, no bui
 - Serve over HTTP (ES modules and the service worker don't work from `file://`):
   `npm start` (= `npx serve -l 8080 .`) or `python -m http.server 8080`, then open http://localhost:8080
 - Unit tests: `npm test` (Node, no deps) or open `/tests/index.html` in the browser. Tests use in-memory storage.
+  `tests/node-only.js` holds checks that read the source tree (e.g. `sw.js` ASSETS vs files on disk) and only runs under `npm test`.
 - Settings → "Load demo data" seeds a sample squad when the roster is empty. Handy for manual checks.
 
 ## Architecture

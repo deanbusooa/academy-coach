@@ -14,6 +14,27 @@ function walk(dir) {
   });
 }
 
+test('sw.js ASSETS matches the app files on disk', () => {
+  const sw = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');
+  const block = sw.match(/const ASSETS = \[([\s\S]*?)\];/);
+  assert(block, 'ASSETS array not found in sw.js');
+  const listed = [...block[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
+
+  const dupes = listed.filter((a, i) => listed.indexOf(a) !== i);
+  assert(!dupes.length, `duplicate ASSETS entries: ${dupes.join(', ')}`);
+
+  // Everything the app loads: the shell plus every file under js/, css/, assets/.
+  const expected = ['./', './index.html', './manifest.webmanifest',
+    ...['js', 'css', 'assets'].flatMap(walk).map((f) => `./${f}`)];
+
+  const missing = expected.filter((f) => !listed.includes(f));
+  const stale = listed.filter((f) => f !== './' && !fs.existsSync(path.join(ROOT, f)));
+  const unexpected = listed.filter((f) => !expected.includes(f) && !stale.includes(f));
+  assert(!missing.length, `add to ASSETS (and bump CACHE_VERSION): ${missing.join(', ')}`);
+  assert(!stale.length, `ASSETS lists files that don't exist (install would fail): ${stale.join(', ')}`);
+  assert(!unexpected.length, `ASSETS lists files outside the app shell: ${unexpected.join(', ')}`);
+});
+
 test('source: no .slice(0, 10) on timestamps — use localDateOf() (regression)', () => {
   const offenders = [];
   for (const file of walk('js').filter((f) => f.endsWith('.js'))) {
