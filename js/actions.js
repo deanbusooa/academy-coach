@@ -3,7 +3,7 @@
 
 import * as store from './store.js';
 import { todayISO, nowTime } from './utils/date.js';
-import { upcomingForPlayer } from './models/bookings.js';
+import { upcomingForPlayer, cancelBooking } from './models/bookings.js';
 
 /** Delete a player and everything that references them. */
 export function deletePlayer(playerId) {
@@ -30,17 +30,18 @@ export function playerDependents(playerId) {
 }
 
 /**
- * Archive a player and cancel (delete) their 1-1 bookings that haven't
- * started yet. Past bookings — including unpaid ones — are kept as history.
+ * Archive a player and cancel their 1-1 bookings that haven't started yet:
+ * they get status 'cancelled' (and refundDue if paid) and leave the calendar
+ * and totals, but stay on record. Past bookings are untouched.
  * @returns {boolean} whether it was saved
  */
 export function archivePlayer(playerId, { today = todayISO(), time = nowTime() } = {}) {
   const player = store.get('players', playerId);
   if (!player) return false;
-  const cancel = new Set(upcomingForPlayer(store.getAll('bookings'), playerId, today, time).map((b) => b.id));
+  const upcoming = upcomingForPlayer(store.getAll('bookings'), playerId, today, time);
   return store.batch(() => {
     store.upsert('players', { ...player, archived: true });
-    if (cancel.size) store.removeWhere('bookings', (b) => cancel.has(b.id));
+    for (const b of upcoming) store.upsert('bookings', cancelBooking(b));
   });
 }
 

@@ -576,16 +576,55 @@ test('actions: archiving cancels only upcoming 1-1s', () => {
   const B = (playerId, date, startTime, paid = false) => store.upsert('bookings', { playerId, date, startTime, durationMin: 60, price: 30, paid });
   const pastUnpaid = B(p.id, '2026-11-20', '16:00');
   const earlierToday = B(p.id, '2026-11-26', '09:00', true);
-  B(p.id, '2026-11-26', '19:00');
-  B(p.id, '2026-12-03', '16:00', true);
+  const laterTodayUnpaid = B(p.id, '2026-11-26', '19:00');
+  const nextWeekPaid = B(p.id, '2026-12-03', '16:00', true);
   const other = B(q.id, '2026-12-03', '17:00');
 
   eq(bookings.upcomingForPlayer(store.getAll('bookings'), p.id, '2026-11-26', '18:00').length, 2);
   assert(archivePlayer(p.id, { today: '2026-11-26', time: '18:00' }));
   eq(store.get('players', p.id).archived, true);
-  eq(store.getAll('bookings').map((b) => b.id).sort(), [pastUnpaid.id, earlierToday.id, other.id].sort());
-  eq(store.get('players', q.id).archived, undefined, 'other player untouched');
+
+  // Nothing is deleted (regression): upcoming ones are cancelled, past ones untouched.
+  eq(store.getAll('bookings').length, 5);
+  const st = (b) => { const x = store.get('bookings', b.id); return [x.status ?? 'booked', Boolean(x.refundDue)]; };
+  eq(st(laterTodayUnpaid), ['cancelled', false], 'unpaid: cancelled, nothing to refund');
+  eq(st(nextWeekPaid), ['cancelled', true], 'paid: cancelled with refund due');
+  eq(st(pastUnpaid), ['booked', false], 'past unpaid kept as owed');
+  eq(st(earlierToday), ['booked', false], 'already started: kept');
+  eq(st(other), ['booked', false], 'other player untouched');
+  eq(store.get('players', q.id).archived, undefined);
+  eq(bookings.upcomingForPlayer(store.getAll('bookings'), p.id, '2026-11-26', '18:00'), [], 'cancelled are not upcoming');
   eq(archivePlayer('missing'), false);
+});
+
+test('bookings: cancelled ones leave calendar, totals, owed and clashes; refunds tracked (regression)', () => {
+  const live = bookings.normalizeBooking({ id: 'a', playerId: 'p', date: '2026-11-24', startTime: '16:00', durationMin: 60, price: 30, paid: true });
+  const unpaid = bookings.normalizeBooking({ id: 'b', playerId: 'p', date: '2026-11-23', startTime: '10:00', durationMin: 60, price: 25 });
+  const cancelledPaid = bookings.cancelBooking(bookings.normalizeBooking({ id: 'c', playerId: 'p', date: '2026-11-25', startTime: '16:00', durationMin: 60, price: 40, paid: true }), 'T1');
+  const cancelledUnpaid = bookings.cancelBooking(bookings.normalizeBooking({ id: 'd', playerId: 'p', date: '2026-11-23', startTime: '09:00', durationMin: 60, price: 20 }), 'T1');
+  const list = [live, unpaid, cancelledPaid, cancelledUnpaid];
+
+  eq(cancelledPaid.status, 'cancelled');
+  eq(cancelledPaid.refundDue, true);
+  eq(cancelledPaid.cancelledAt, 'T1');
+  eq(cancelledUnpaid.refundDue, false);
+  eq(live.status, 'booked');
+
+  eq(bookings.bookingsInWeek(list, '2026-11-23').map((b) => b.id), ['b', 'a'], 'calendar');
+  eq(bookings.totals(list), { count: 2, paidCount: 1, unpaidCount: 1, total: 55, paid: 30, unpaid: 25 }, 'totals');
+  eq(bookings.unpaidBookings(list, '2026-11-26').map((b) => b.id), ['b'], 'cancelled unpaid is not owed');
+  eq(bookings.findClashes(list, { id: 'n', date: '2026-11-25', startTime: '16:30', durationMin: 30 }), [], 'cancelled slot is free');
+
+  eq(bookings.refundsDue(list).map((b) => b.id), ['c']);
+  const settled = bookings.markRefunded(cancelledPaid, 'T2');
+  eq([settled.refundDue, settled.refundedAt, settled.status], [false, 'T2', 'cancelled']);
+  eq(bookings.refundsDue([live, settled]), []);
+
+  // Status/refund survive normalisation (reload, import, edit form).
+  eq(bookings.normalizeBooking(cancelledPaid).status, 'cancelled');
+  eq(bookings.normalizeBooking(cancelledPaid).refundDue, true);
+  eq(bookings.normalizeBooking({ status: 'weird', refundDue: true }).status, 'booked');
+  eq(bookings.normalizeBooking({ status: 'weird', refundDue: true }).refundDue, false, 'refund only on cancelled');
 });
 
 test('actions: deleteDrill removes from plans; renameAgeGroup updates refs', () => {

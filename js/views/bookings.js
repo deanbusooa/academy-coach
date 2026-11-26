@@ -12,7 +12,7 @@ import {
 } from '../utils/date.js';
 import {
   FOCUS_AREAS, normalizeBooking, validateBooking, bookingsInWeek, groupByDay, totals, endTime,
-  findClashes, unpaidBookings,
+  findClashes, unpaidBookings, refundsDue, markRefunded,
 } from '../models/bookings.js';
 import { pageHead, emptyState, fab, playerOptions } from './shared.js';
 
@@ -80,6 +80,29 @@ export function render(container, _params, query) {
             h('div', { class: 'sub' }, `${relativeDay(b.date, today)} · ${b.startTime} · ${b.focusArea || 'General'}`)),
           h('button', { class: 'btn btn-sm btn-pitch', type: 'button', onclick: () => togglePaid(b) },
             icon('check'), `Paid ${formatMoney(b.price, settings.currency)}`)));
+      }))));
+  }
+
+  // Paid sessions cancelled by archiving a player: money to hand back.
+  const refunds = refundsDue(all);
+  if (refunds.length) {
+    const due = Math.round(refunds.reduce((sum, b) => sum + (b.price || 0), 0) * 100) / 100;
+    container.append(h('section', { class: 'card refunds-card', style: { marginTop: 'var(--s-4)' } },
+      h('div', { class: 'card-head' },
+        h('h3', {}, 'Refunds due'),
+        h('span', { class: 'badge badge-warn' }, formatMoney(due, settings.currency))),
+      h('p', { class: 'muted hint-line' }, 'Paid 1-1s that were cancelled. Mark each one once you have paid the money back.'),
+      h('ul', { class: 'list' }, refunds.map((b) => {
+        const p = playerById.get(b.playerId);
+        return h('li', {}, h('div', { class: 'list-item' },
+          h('div', { class: 'grow' },
+            h('div', { class: 'title' }, `${p?.name || 'Unknown player'} · ${formatMoney(b.price, settings.currency)}`),
+            h('div', { class: 'sub' }, `Cancelled: ${formatDate(b.date)} ${b.startTime} · ${b.focusArea || 'General'}`)),
+          h('button', {
+            class: 'btn btn-sm', type: 'button', dataset: { focusKey: `refund-${b.id}` },
+            'aria-label': `Mark refunded: ${p?.name || 'player'}, ${formatDate(b.date)}`,
+            onclick: () => { if (store.upsert('bookings', markRefunded(b))) toast('Refund recorded'); },
+          }, icon('check'), 'Mark refunded')));
       }))));
   }
 

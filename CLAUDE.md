@@ -41,11 +41,13 @@ index.html ─▶ js/app.js ─▶ router.js ─▶ views/*.js ─▶ models/*.j
 players   { id, name, ageGroup, position, parentName, parentPhone, parentEmail, notes, archived, joinedOn }
           // joinedOn: ISO date attendance counts from (falls back to the createdAt local day).
           // archived: hidden from roster/registers/pickers (activePlayers, filterPlayers, sessionRoster), history kept.
-          // Archive is the normal "remove" and cancels upcoming 1-1s (actions.archivePlayer);
+          // Archive is the normal "remove" and cancels (never deletes) upcoming 1-1s (actions.archivePlayer);
           // permanent delete is only offered on an archived player's page.
 drills    { id, name, durationMin, equipment[], coachingPoints[], ageGroups[] (empty = all), notes }
 sessions  { id, date, time, ageGroup, location, title, drillIds[] (ordered), attendance{ playerId: 'present'|'late'|'absent' }, notes }
-bookings  { id, playerId, date, startTime, durationMin, focusArea, price, paid, location, notes }
+bookings  { id, playerId, date, startTime, durationMin, focusArea, price, paid, location, notes, status, refundDue, refundedAt }
+          // status 'booked' | 'cancelled'. Cancelled (e.g. by archiving the player) stays on record but the model's
+          // calendar/totals/owed/clash helpers skip it. refundDue = cancelled while paid; markRefunded() settles it.
 ratings   { id, playerId, date, scores{ dribbling, passing, firstTouch, shooting, defending, fitness: 1..5 (each optional) }, notes }
 settings  { ageGroups[], currency, defaultPrice, defaultDuration }
 meta      { lastExportAt, createdAt }

@@ -53,6 +53,8 @@
 }
 .archived-banner p { margin: 0; flex: 1 1 220px; }
 
+.refunds-card { border-color: var(--c-warn); border-left-width: 5px; }
+
 .quick-actions {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));

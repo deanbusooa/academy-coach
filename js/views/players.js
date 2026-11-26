@@ -94,11 +94,11 @@ export async function setArchived(player, archived) {
     const list = upcoming.slice(0, 5).map((b) => `• ${formatDate(b.date)} ${b.startTime}${b.paid ? ' (paid)' : ''}`).join('\n');
     const more = upcoming.length > 5 ? `\n• …and ${upcoming.length - 5} more` : '';
     const refund = paid.length
-      ? `\n\n${plural(paid.length, 'session')} already paid (${formatMoney(totals(paid).paid, settings.currency)}): remember to refund.`
+      ? `\n\n${plural(paid.length, 'session')} already paid (${formatMoney(totals(paid).paid, settings.currency)}): you'll find ${paid.length === 1 ? 'it' : 'them'} under 1-1s → Refunds due.`
       : '';
     const ok = await confirmDialog({
       title: `Archive ${player.name}?`,
-      message: `Their ${plural(upcoming.length, 'upcoming 1-1 session')} will be cancelled:\n${list}${more}${refund}\n\nPast sessions, payments, attendance and ratings are kept.`,
+      message: `Their ${plural(upcoming.length, 'upcoming 1-1 session')} will be cancelled (kept on record, removed from the calendar):\n${list}${more}${refund}\n\nPast sessions, payments, attendance and ratings are kept.`,
       confirmLabel: `Archive & cancel ${plural(upcoming.length, '1-1')}`,
       danger: true,
     });

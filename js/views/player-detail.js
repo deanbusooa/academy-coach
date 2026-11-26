@@ -8,7 +8,7 @@ import { formatMoney, round1, plural } from '../utils/format.js';
 import { todayISO, formatDate, relativeDay, localDateOf } from '../utils/date.js';
 import { telHref } from '../models/players.js';
 import { playerAttendance } from '../models/sessions.js';
-import { sortBookings, totals, endTime } from '../models/bookings.js';
+import { sortBookings, totals, endTime, isCancelled } from '../models/bookings.js';
 import { ratingsForPlayer, latestScores, average, SKILLS } from '../models/ratings.js';
 import { openPlayerForm, setArchived, confirmDeletePlayer } from './players.js';
 import { openBookingForm } from './bookings.js';
@@ -27,7 +27,8 @@ export function render(container, { id }) {
   const settings = store.getSettings();
   const today = todayISO();
   const att = playerAttendance(store.getAll('sessions'), player, today);
-  const bookings = sortBookings(store.getAll('bookings').filter((b) => b.playerId === id));
+  // Cancelled 1-1s (from archiving) are history, not sessions: leave them out here.
+  const bookings = sortBookings(store.getAll('bookings').filter((b) => b.playerId === id && !isCancelled(b)));
   const upcoming = bookings.filter((b) => b.date >= today);
   const owed = totals(bookings.filter((b) => b.date <= today));
   const ratings = ratingsForPlayer(store.getAll('ratings'), id);
