@@ -1,6 +1,6 @@
 // Group session + attendance domain logic. Pure functions.
 
-import { isISODate, isTime, compareISO } from '../utils/date.js';
+import { isISODate, isTime, compareISO, localDateOf } from '../utils/date.js';
 import { sortPlayers } from './players.js';
 
 export const ATTENDANCE = ['present', 'late', 'absent'];
@@ -100,11 +100,19 @@ export function splitUpcomingPast(sessions, today) {
   };
 }
 
-/** Attendance record for one player across sessions they were marked in or eligible for. */
+/**
+ * Attendance record for one player. Counts sessions up to `today` where the
+ * register was taken and either the player was marked, or they were eligible
+ * (same age group) AND had already joined (session on/after their createdAt local date).
+ * An explicit mark always counts, even on a session dated before they were added.
+ */
 export function playerAttendance(sessions, player, today) {
-  const relevant = sessions.filter((s) => s.date <= today
-    && (s.attendance?.[player.id] || s.ageGroup === player.ageGroup)
-    && Object.keys(s.attendance || {}).length > 0);
+  const joined = localDateOf(player.createdAt);
+  const relevant = sessions.filter((s) => {
+    if (s.date > today || Object.keys(s.attendance || {}).length === 0) return false;
+    if (s.attendance?.[player.id]) return true;
+    return s.ageGroup === player.ageGroup && (!joined || s.date >= joined);
+  });
   let attended = 0;
   for (const s of relevant) {
     const st = s.attendance?.[player.id];

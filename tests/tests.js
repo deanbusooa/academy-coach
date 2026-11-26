@@ -153,6 +153,18 @@ test('sessions: player attendance %', () => {
   eq(sessions.playerAttendance(ss, p, '2026-11-26'), { attended: 2, total: 3, pct: 67 });
 });
 
+test('sessions: attendance ignores sessions before the player joined (regression)', () => {
+  // Joined 10 Nov (local). Built from local time so the test holds in any timezone.
+  const p = { id: 'p', ageGroup: 'U9', createdAt: new Date(2026, 10, 10, 9, 0).toISOString() };
+  const ss = [
+    { date: '2026-11-01', ageGroup: 'U9', attendance: { x: 'present' } }, // before joining → ignored
+    { date: '2026-11-03', ageGroup: 'U9', attendance: { p: 'present' } }, // explicitly marked → counts
+    { date: '2026-11-10', ageGroup: 'U9', attendance: { x: 'present' } }, // join day, missed → counts
+    { date: '2026-11-17', ageGroup: 'U9', attendance: { p: 'late' } },
+  ];
+  eq(sessions.playerAttendance(ss, p, '2026-11-26'), { attended: 2, total: 3, pct: 67 });
+});
+
 // ---------- bookings ----------
 
 test('bookings: normalize/validate, end time', () => {

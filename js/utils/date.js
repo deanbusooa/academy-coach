@@ -22,6 +22,16 @@ export function isTime(s) {
   return typeof s === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(s);
 }
 
+/**
+ * Local calendar date of a timestamp (e.g. createdAt). Use this instead of
+ * `.slice(0, 10)` on an ISO timestamp, which gives the UTC date. Returns '' if invalid.
+ */
+export function localDateOf(timestamp) {
+  if (!timestamp) return '';
+  const d = new Date(timestamp);
+  return Number.isNaN(d.getTime()) ? '' : toISO(d);
+}
+
 export function todayISO(now = new Date()) {
   return toISO(now);
 }
