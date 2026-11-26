@@ -379,5 +379,11 @@
 }
 
 /* ---------- Settings ---------- */
+.undo-import {
+  margin-top: var(--s-3); padding: var(--s-3);
+  border: 1px dashed var(--c-warn); border-radius: var(--r-sm); background: var(--c-warn-tint);
+}
+.undo-import p { margin: 0 0 var(--s-2); }
+
 .danger-card { border-color: var(--c-bad); }
 .danger-card h3 { color: var(--c-bad); }

@@ -10,7 +10,10 @@ import * as sessions from '../js/models/sessions.js';
 import * as bookings from '../js/models/bookings.js';
 import * as ratings from '../js/models/ratings.js';
 import * as store from '../js/store.js';
-import { validateBackup, buildBackup, backupToState, backupFilename, exportBackup } from '../js/backup.js';
+import {
+  validateBackup, buildBackup, backupToState, backupFilename, exportBackup, prepareBackup,
+  encryptBackup, decryptBackup, isEncryptedBackup, latestChangeAt, compareBackupAge,
+} from '../js/backup.js';
 import { deletePlayer, deleteDrill, renameAgeGroup, archivePlayer, saveRating, cancelBookingById, playerDependents } from '../js/actions.js';
 import { loadDemoData } from '../js/demo.js';
 import { parseHash, matchRoute, href } from '../js/router.js';
@@ -858,6 +861,97 @@ test('backup export: share sheet on touch devices, download otherwise (regressio
   eq(await exportBackup({ nav: fakeNav({ shareError: named('AbortError') }), doc, preferShare: true }), 'cancelled');
   eq(doc.downloads.length, 0);
   eq(store.getMeta().lastExportAt, null);
+});
+
+const FAST = { iterations: 1000 }; // real exports use PBKDF2_ITERATIONS; tests stay quick
+
+test('backup encryption: round trip, nothing readable, wrong passphrase and tampering rejected', async () => {
+  const payload = buildBackup({ schemaVersion: 1, players: [{ id: 'p', name: 'Secret Name', parentPhone: '+61 491 570 156' }] });
+  const wrapped = await encryptBackup(payload, 'correct horse 1', FAST);
+  assert(isEncryptedBackup(wrapped));
+  assert(!isEncryptedBackup(payload));
+  const text = JSON.stringify(wrapped);
+  assert(!text.includes('Secret Name') && !text.includes('491 570'), 'no plaintext in the file');
+  eq([wrapped.kdf.name, wrapped.kdf.hash, wrapped.kdf.iterations, wrapped.cipher.name], ['PBKDF2', 'SHA-256', 1000, 'AES-GCM']);
+  eq(wrapped.exportedAt, payload.exportedAt, 'export date readable before unlocking');
+
+  eq(await decryptBackup(wrapped, 'correct horse 1'), payload);
+
+  const fails = async (w, pass) => { try { await decryptBackup(w, pass); return null; } catch (e) { return e.message; } };
+  eq(await fails(wrapped, 'wrong passphrase'), 'Wrong passphrase, or the file is damaged.');
+  const tampered = { ...wrapped, data: wrapped.data.slice(0, -4) + (wrapped.data.endsWith('AAAA') ? 'BBBB' : 'AAAA') };
+  eq(await fails(tampered, 'correct horse 1'), 'Wrong passphrase, or the file is damaged.');
+  assert(/format/.test(await fails({ ...wrapped, format: 2 }, 'correct horse 1')));
+
+  let short = null;
+  try { await encryptBackup(payload, 'short', FAST); } catch (e) { short = e.message; }
+  assert(/at least 8/.test(short), short);
+
+  // Same input twice gives different files (random salt + IV).
+  const again = await encryptBackup(payload, 'correct horse 1', FAST);
+  assert(again.data !== wrapped.data && again.kdf.salt !== wrapped.kdf.salt);
+});
+
+test('backup: prepareBackup encrypts with a passphrase and names the file', async () => {
+  store.init({ storage: memoryStorage() });
+  store.upsert('players', { name: 'Leo', ageGroup: 'U9' });
+  const plain = await prepareBackup();
+  eq([plain.encrypted, /\.encrypted\./.test(plain.filename)], [false, false]);
+  eq(JSON.parse(plain.json).players[0].name, 'Leo');
+  const enc = await prepareBackup({ passphrase: 'correct horse 1', iterations: 1000 });
+  assert(enc.encrypted && /^academy-coach-backup-\d{4}-\d{2}-\d{2}\.encrypted\.json$/.test(enc.filename), enc.filename);
+  eq((await decryptBackup(JSON.parse(enc.json), 'correct horse 1')).players[0].name, 'Leo');
+});
+
+test('import safety: latest local change vs backup export date', () => {
+  eq(latestChangeAt({ players: [], drills: [] }), null);
+  const state = {
+    players: [{ createdAt: '2026-11-01T10:00:00Z', updatedAt: '2026-11-20T10:00:00Z' }],
+    bookings: [{ createdAt: '2026-11-25T08:00:00Z' }],
+    ratings: [{ updatedAt: '2026-11-24T09:00:00Z' }],
+  };
+  eq(latestChangeAt(state), '2026-11-25T08:00:00Z');
+  eq(compareBackupAge('2026-11-22T00:00:00Z', '2026-11-25T08:00:00Z'), { older: true, known: true });
+  eq(compareBackupAge('2026-11-26T00:00:00Z', '2026-11-25T08:00:00Z'), { older: false, known: true });
+  eq(compareBackupAge(undefined, '2026-11-25T08:00:00Z'), { older: false, known: false });
+  eq(compareBackupAge('2026-11-26T00:00:00Z', null), { older: false, known: false });
+});
+
+test('store: undo-import copy saves, restores and refuses when storage is full', () => {
+  const storage = memoryStorage();
+  store.init({ storage });
+  const mine = store.upsert('players', { name: 'Mine', ageGroup: 'U9' });
+  eq(store.getUndoCopyInfo(), null);
+
+  assert(store.saveUndoCopy(new Date('2026-11-26T09:00:00Z')));
+  store.replaceAll({ schemaVersion: 1, players: [{ id: 'imp', name: 'Imported' }, { id: 'imp2', name: 'Imported 2' }] });
+  eq(store.getAll('players').map((p) => p.name), ['Imported', 'Imported 2']);
+  eq(store.getUndoCopyInfo().savedAt, '2026-11-26T09:00:00.000Z');
+  eq(store.getUndoCopyInfo().counts.players, 1);
+
+  let notified = 0;
+  store.subscribe(() => notified++);
+  assert(store.restoreUndoCopy());
+  eq(store.getAll('players').map((p) => p.id), [mine.id]);
+  eq(store.getUndoCopyInfo(), null, 'copy used up');
+  assert(notified >= 1);
+  eq(store.restoreUndoCopy(), false, 'nothing left to restore');
+
+  store.saveUndoCopy();
+  store.discardUndoCopy();
+  eq(store.getUndoCopyInfo(), null);
+
+  // Full storage: no copy, reported once, and the caller must not import.
+  const errorsSeen = [];
+  store.onSaveError((e) => errorsSeen.push(e.message));
+  try {
+    storage.failing = true;
+    eq(store.saveUndoCopy(), false);
+    eq(errorsSeen.length, 1);
+    assert(/undo copy/.test(errorsSeen[0]));
+  } finally {
+    store.onSaveError(null);
+  }
 });
 
 test('backup: rejects bad files', () => {

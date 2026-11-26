@@ -351,6 +351,53 @@ export function replaceAll(data) {
   return apply(normalizeState(migrate(JSON.parse(JSON.stringify(data)))));
 }
 
+// ---------- "undo import" copy ----------
+// Before an import replaces everything, the current data is kept under its own
+// key so Settings can put it back. Only one copy is kept (the latest import).
+
+export const UNDO_KEY = `${STORAGE_KEY}.undo-import`;
+
+/** @returns {boolean} false if it couldn't be saved (e.g. storage full); reported via onSaveError. */
+export function saveUndoCopy(now = new Date()) {
+  if (!storage) return true;
+  try {
+    storage.setItem(UNDO_KEY, JSON.stringify({ savedAt: now.toISOString(), state }));
+    return true;
+  } catch (cause) {
+    const err = new Error("Couldn't keep an undo copy of your current data (device storage is full). Export a backup first.", { cause });
+    try { saveErrorHandler(err); } catch { /* ignore */ }
+    return false;
+  }
+}
+
+/** @returns {{ savedAt: string, counts: Record<string, number> } | null} */
+export function getUndoCopyInfo() {
+  try {
+    const copy = JSON.parse(storage?.getItem(UNDO_KEY) || 'null');
+    if (!copy?.state) return null;
+    const counts = Object.fromEntries(COLLECTIONS.map((c) => [c, Array.isArray(copy.state[c]) ? copy.state[c].length : 0]));
+    return { savedAt: copy.savedAt, counts };
+  } catch {
+    return null;
+  }
+}
+
+/** Put back the data from before the last import, then forget the copy. @returns {boolean} */
+export function restoreUndoCopy() {
+  let copy;
+  try { copy = JSON.parse(storage?.getItem(UNDO_KEY) || 'null'); } catch { copy = null; }
+  if (!copy?.state) return false;
+  if (!apply(normalizeState(migrate(copy.state)))) return false;
+  storage.removeItem(UNDO_KEY);
+  notify(); // so Settings drops the "Undo last import" card
+  return true;
+}
+
+export function discardUndoCopy() {
+  storage?.removeItem(UNDO_KEY);
+  notify();
+}
+
 /** @returns {boolean} */
 export function resetAll() {
   return apply(defaultState());
