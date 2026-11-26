@@ -20,7 +20,7 @@ index.html ─▶ js/app.js ─▶ router.js ─▶ views/*.js ─▶ models/*.j
 
 | Path | Role |
 |---|---|
-| `js/store.js` | Single state object under key `academyCoach.v1`. `getAll/get/upsert/remove/removeWhere/batch/updateSettings/subscribe/snapshot/replaceAll`. Every write persists, then notifies subscribers. Has `schemaVersion` + `migrate()`. |
+| `js/store.js` | Single state object under key `academyCoach.v1`. `getAll/get/upsert/remove/removeWhere/batch/updateSettings/subscribe/snapshot/replaceAll`. Every write persists, then notifies subscribers. Has `schemaVersion` + `migrate()`. On load/import, `normalizeState()` runs every record through its model's `normalizeX()` (keeping `id`/`createdAt`/`updatedAt`), so views can trust record shapes. Store imports only the pure normalisers from models; models never import the store. |
 | `js/router.js` | Hash router. Routes `{ path: '/x/:id', view, section }`. Calls `view.render(container, params, query)`. `href(path, query)` builds links. |
 | `js/app.js` | Route table, nav, `store.subscribe(() => router.refresh())`, SW registration. |
 | `js/models/*.js` | **Pure** domain functions: `normalizeX`, `validateX` (returns `{field: message}`), filters, derived stats. No DOM, no store. |

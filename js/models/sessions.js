@@ -16,10 +16,15 @@ export function normalizeSession(input = {}) {
     ageGroup: str(input.ageGroup),
     location: str(input.location),
     title: str(input.title),
-    drillIds: Array.isArray(input.drillIds) ? input.drillIds.slice() : [],
-    attendance: input.attendance && typeof input.attendance === 'object' ? { ...input.attendance } : {},
+    drillIds: Array.isArray(input.drillIds) ? input.drillIds.filter((id) => typeof id === 'string' && id) : [],
+    attendance: cleanAttendance(input.attendance),
     notes: str(input.notes),
   };
+}
+
+function cleanAttendance(att) {
+  if (!att || typeof att !== 'object' || Array.isArray(att)) return {};
+  return Object.fromEntries(Object.entries(att).filter(([, v]) => ATTENDANCE.includes(v)));
 }
 
 export function validateSession(s) {

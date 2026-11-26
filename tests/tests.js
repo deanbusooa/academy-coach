@@ -249,6 +249,43 @@ test('store: reload from storage + defaults filled', () => {
   assert(store.getSettings().ageGroups.includes('U9'));
 });
 
+test('store: malformed backup records are normalised (regression)', () => {
+  store.init({ storage: memoryStorage() });
+  store.replaceAll({
+    schemaVersion: 1,
+    players: [{ id: 'p1', name: 42, ageGroup: null, createdAt: '2026-11-01T10:00:00.000Z' }, 'junk', null, { name: 'No Id' }],
+    drills: [{ id: 'd1', name: 'Rondo', equipment: 'cones\nbibs', coachingPoints: null, durationMin: '15' }],
+    sessions: [{ id: 's1', date: '2026-11-01', attendance: { p1: 'present', x: 'maybe' }, drillIds: null }, { id: 's2', attendance: [] }],
+    bookings: [{ id: 'b1', price: 'free', paid: 'yes' }],
+    ratings: [{ id: 'r1', scores: null }, { id: 'r2', scores: { dribbling: '4', bogus: 3 } }],
+    settings: { ageGroups: ['U9', 3, '', 'U9'], currency: 7, defaultPrice: -5 },
+    meta: 'nope',
+  });
+  const loaded = store.getAll('players');
+  eq(loaded.length, 2);
+  eq(loaded[0], { id: 'p1', name: '42', ageGroup: '', position: '', parentName: '', parentPhone: '', parentEmail: '', notes: '', createdAt: '2026-11-01T10:00:00.000Z' });
+  assert(typeof loaded[1].id === 'string' && loaded[1].id, 'missing id assigned');
+  eq(store.get('drills', 'd1').equipment, ['cones', 'bibs']);
+  eq(store.get('drills', 'd1').coachingPoints, []);
+  eq(store.get('sessions', 's1').attendance, { p1: 'present' });
+  eq(store.get('sessions', 's1').drillIds, []);
+  eq(store.get('sessions', 's2').attendance, {});
+  eq(store.get('bookings', 'b1').price, 0);
+  eq(store.get('bookings', 'b1').paid, true);
+  eq(store.get('ratings', 'r1').scores, {});
+  eq(store.get('ratings', 'r2').scores, { dribbling: 4 });
+  const settings = store.getSettings();
+  eq(settings.ageGroups, ['U9']);
+  eq(settings.currency, store.defaultSettings().currency);
+  eq(settings.defaultPrice, store.defaultSettings().defaultPrice);
+  eq(store.getMeta().lastExportAt, null);
+  // The functions views call must not throw on the result.
+  players.filterPlayers(loaded, { query: 'x' });
+  sessions.splitUpcomingPast(store.getAll('sessions'), '2026-11-26');
+  sessions.sessionRoster(loaded, store.get('sessions', 's1'));
+  drills.filterDrills(store.getAll('drills'), { query: 'cone' });
+});
+
 test('store: corrupt data is set aside, not lost', () => {
   const storage = memoryStorage({ [store.STORAGE_KEY]: '{not json' });
   store.init({ storage });

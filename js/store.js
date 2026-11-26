@@ -2,6 +2,12 @@
 // The ONLY module that touches localStorage. Views read via getAll/get and
 // write via upsert/remove/updateSettings; every write persists and notifies.
 
+import { normalizePlayer } from './models/players.js';
+import { normalizeDrill } from './models/drills.js';
+import { normalizeSession } from './models/sessions.js';
+import { normalizeBooking } from './models/bookings.js';
+import { normalizeRating } from './models/ratings.js';
+
 export const STORAGE_KEY = 'academyCoach.v1';
 export const SCHEMA_VERSION = 1;
 export const COLLECTIONS = ['players', 'drills', 'sessions', 'bookings', 'ratings'];
@@ -83,17 +89,57 @@ export function migrate(data) {
   return { ...data, schemaVersion: SCHEMA_VERSION };
 }
 
-/** Fill any missing collections/settings with defaults. */
+const NORMALIZERS = {
+  players: normalizePlayer,
+  drills: normalizeDrill,
+  sessions: normalizeSession,
+  bookings: normalizeBooking,
+  ratings: normalizeRating,
+};
+
+/** Run one stored record through its model normaliser, keeping store-owned fields. */
+function normalizeRecord(collection, r) {
+  if (!r || typeof r !== 'object' || Array.isArray(r)) return null;
+  const id = typeof r.id === 'string' && r.id ? r.id : newId();
+  const out = { ...NORMALIZERS[collection](r), id };
+  for (const k of ['createdAt', 'updatedAt']) if (typeof r[k] === 'string') out[k] = r[k];
+  return out;
+}
+
+function normalizeSettings(s) {
+  const base = defaultSettings();
+  if (!s || typeof s !== 'object' || Array.isArray(s)) return base;
+  const groups = Array.isArray(s.ageGroups)
+    ? [...new Set(s.ageGroups.filter((g) => typeof g === 'string' && g.trim()).map((g) => g.trim()))]
+    : [];
+  const num = (v, fallback, min) => (Number.isFinite(Number(v)) && Number(v) >= min ? Number(v) : fallback);
+  return {
+    ...base,
+    ageGroups: groups.length ? groups : base.ageGroups,
+    currency: typeof s.currency === 'string' && /^[A-Z]{3}$/.test(s.currency) ? s.currency : base.currency,
+    defaultPrice: num(s.defaultPrice, base.defaultPrice, 0),
+    defaultDuration: Math.round(num(s.defaultDuration, base.defaultDuration, 5)),
+  };
+}
+
+/**
+ * Make loaded/imported data safe for the views: every record goes through its
+ * model's normalizeX(), non-objects are dropped, missing ids are assigned,
+ * and settings fall back to defaults field by field.
+ */
 export function normalizeState(data) {
   const base = defaultState();
-  const out = { ...base, ...data };
-  for (const c of COLLECTIONS) out[c] = Array.isArray(data[c]) ? data[c] : [];
-  out.settings = { ...base.settings, ...(data.settings || {}) };
-  if (!Array.isArray(out.settings.ageGroups) || out.settings.ageGroups.length === 0) {
-    out.settings.ageGroups = [...DEFAULT_AGE_GROUPS];
+  const out = { ...base, schemaVersion: SCHEMA_VERSION };
+  for (const c of COLLECTIONS) {
+    out[c] = Array.isArray(data[c]) ? data[c].map((r) => normalizeRecord(c, r)).filter(Boolean) : [];
   }
-  out.meta = { ...base.meta, ...(data.meta || {}) };
-  out.schemaVersion = SCHEMA_VERSION;
+  out.settings = normalizeSettings(data.settings);
+  const meta = data.meta && typeof data.meta === 'object' ? data.meta : {};
+  out.meta = {
+    ...base.meta,
+    lastExportAt: typeof meta.lastExportAt === 'string' ? meta.lastExportAt : null,
+    createdAt: typeof meta.createdAt === 'string' ? meta.createdAt : base.meta.createdAt,
+  };
   return out;
 }
 
