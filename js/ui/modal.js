@@ -11,11 +11,32 @@ document.addEventListener('keydown', (e) => {
 });
 
 /**
+ * Only the top-most modal is interactive: every other top-level element
+ * (the app, lower modals) gets `inert`, so Tab, screen readers and taps can't
+ * reach it. The toast region stays live so messages are still announced.
+ */
+function syncInert() {
+  const top = open[open.length - 1]?.backdrop ?? null;
+  for (const el of document.body.children) {
+    if (el.tagName === 'SCRIPT' || el.id === 'toast-root') continue;
+    el.inert = Boolean(top) && el !== top;
+  }
+}
+
+/** Where to put focus back: the opener, or its re-rendered twin (same data-focus-key). */
+function returnFocus(opener, key) {
+  const target = opener?.isConnected ? opener
+    : (key ? document.querySelector(`[data-focus-key="${CSS.escape(key)}"]`) : null);
+  target?.focus?.({ preventScroll: true });
+}
+
+/**
  * @param {{ title: string, body: Node|Node[], footer?: Node, onClose?: () => void }} opts
  * @returns {{ close: () => void, el: HTMLElement }}
  */
 export function openModal({ title, body, footer, onClose }) {
   const previouslyFocused = document.activeElement;
+  const previousKey = previouslyFocused?.closest?.('[data-focus-key]')?.dataset.focusKey ?? null;
   const titleId = `modal-title-${Date.now()}`;
 
   const closeBtn = h('button', { class: 'btn btn-ghost btn-icon', type: 'button', 'aria-label': 'Close' }, icon('x'));
@@ -29,13 +50,15 @@ export function openModal({ title, body, footer, onClose }) {
   let closed = false;
   const api = {
     el: dialog,
+    backdrop,
     close() {
       if (closed) return;
       closed = true;
       backdrop.remove();
       open.splice(open.indexOf(api), 1);
+      syncInert();
       if (!open.length) document.body.style.overflow = '';
-      previouslyFocused?.focus?.({ preventScroll: true });
+      returnFocus(previouslyFocused, previousKey);
       onClose?.();
     },
   };
@@ -46,6 +69,7 @@ export function openModal({ title, body, footer, onClose }) {
   document.body.append(backdrop);
   document.body.style.overflow = 'hidden';
   open.push(api);
+  syncInert();
 
   // Focus the first field (or the close button) for keyboard users.
   requestAnimationFrame(() => {

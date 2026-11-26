@@ -112,7 +112,8 @@ export function buildForm(fields, values = {}) {
       if (msg && !firstBad) firstBad = fieldWrap;
     }
     if (firstBad) {
-      firstBad.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      firstBad.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
       firstBad.querySelector('input, select, textarea, button')?.focus({ preventScroll: true });
     }
     return Boolean(firstBad);

@@ -40,7 +40,7 @@ export function render(container, { id }) {
           formatDate(session.date),
           session.time ? ` · ${session.time}` : '',
           session.location ? ` · ${session.location}` : '')),
-      h('button', { class: 'btn btn-sm', onclick: () => openSessionForm(session) }, icon('edit'), 'Edit')),
+      h('button', { class: 'btn btn-sm', dataset: { focusKey: 'edit' }, onclick: () => openSessionForm(session) }, icon('edit'), 'Edit')),
     session.notes ? h('p', { class: 'pre-line muted' }, session.notes) : null,
   );
 
@@ -58,8 +58,10 @@ export function render(container, { id }) {
         showEdit: false,
         extra: h('span', { class: 'reorder', onclick: (e) => e.preventDefault() },
           h('button', { class: 'btn btn-ghost btn-icon btn-sm', type: 'button', 'aria-label': `Move ${d.name} up`, disabled: i === 0,
+            dataset: { focusKey: `up-${d.id}` },
             onclick: () => store.upsert('sessions', moveDrill(session, i, -1)) }, icon('arrow-up')),
           h('button', { class: 'btn btn-ghost btn-icon btn-sm', type: 'button', 'aria-label': `Move ${d.name} down`, disabled: i === planned.length - 1,
+            dataset: { focusKey: `down-${d.id}` },
             onclick: () => store.upsert('sessions', moveDrill(session, i, 1)) }, icon('arrow-down')),
           h('button', { class: 'btn btn-ghost btn-icon btn-sm', type: 'button', 'aria-label': `Remove ${d.name}`,
             onclick: () => store.upsert('sessions', removeDrillAt(session, i)) }, icon('x'))),
@@ -87,7 +89,7 @@ function registerCard(session) {
     h('div', { class: 'card-head' },
       h('h3', {}, 'Register'),
       roster.length ? h('button', {
-        class: 'btn btn-sm', type: 'button',
+        class: 'btn btn-sm', type: 'button', dataset: { focusKey: 'all-present' },
         onclick: () => { if (store.upsert('sessions', markAll(session, roster.map((p) => p.id)))) toast('All marked present'); },
       }, icon('check'), 'All present') : null),
   );
@@ -109,6 +111,7 @@ function registerCard(session) {
       const status = session.attendance?.[p.id] || '';
       return h('button', {
         type: 'button',
+        dataset: { focusKey: `att-${p.id}` },
         class: ['att-tile', status && `is-${status}`],
         'aria-label': `${p.name}: ${status ? ATTENDANCE_LABEL[status] : 'not marked'}. Tap to change.`,
         onclick: () => {

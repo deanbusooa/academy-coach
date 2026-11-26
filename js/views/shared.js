@@ -1,6 +1,6 @@
 // Small building blocks shared by several views.
 
-import { h } from '../utils/dom.js';
+import { h, keepFocus } from '../utils/dom.js';
 import { icon } from '../ui/icons.js';
 import { initials } from '../utils/format.js';
 import { sortPlayers } from '../models/players.js';
@@ -18,7 +18,7 @@ export function emptyState({ iconName = 'ball', text, action }) {
 }
 
 export function fab(label, onclick) {
-  return h('button', { class: 'fab', type: 'button', 'aria-label': label, title: label, onclick }, icon('plus'));
+  return h('button', { class: 'fab', type: 'button', 'aria-label': label, title: label, onclick, dataset: { focusKey: 'fab' } }, icon('plus'));
 }
 
 export function avatar(name) {
@@ -32,6 +32,7 @@ export function filterChips({ options, value, onChange, allLabel = 'All', label 
     all.map((o) => h('button', {
       type: 'button',
       class: 'chip',
+      dataset: { focusKey: `chip-${label}-${o.value}` },
       'aria-pressed': String(o.value === value),
       onclick: () => onChange(o.value),
     }, o.label)));
@@ -46,6 +47,11 @@ export function searchBox({ value, placeholder, onInput }) {
 }
 
 /** Select options for active players (plus `keepId`, e.g. the archived player on an existing booking). */
+/** Re-render a view in place (e.g. after a filter chip), keeping keyboard focus. */
+export function rerenderView(container, render, ...args) {
+  keepFocus(container, () => { container.replaceChildren(); render(container, ...args); });
+}
+
 export function playerOptions(players, keepId = null) {
   return sortPlayers(players.filter((p) => !p.archived || p.id === keepId))
     .map((p) => ({ value: p.id, label: `${p.name}${p.ageGroup ? ` (${p.ageGroup})` : ''}${p.archived ? ' · archived' : ''}` }));

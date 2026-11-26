@@ -1,7 +1,7 @@
 // Progress: pick a player, rate skills 1–5, see trend chart + history.
 
 import * as store from '../store.js';
-import { h, add, setTitle } from '../utils/dom.js';
+import { h, add, setTitle, keepFocus } from '../utils/dom.js';
 import { href } from '../router.js';
 import { icon } from '../ui/icons.js';
 import { openModal, confirmDialog } from '../ui/modal.js';
@@ -15,7 +15,7 @@ import {
   average, changeSinceFirst, uniqueDates,
 } from '../models/ratings.js';
 import { skillBar } from './player-detail.js';
-import { pageHead, backLink, emptyState, avatar, filterChips, listItemLink } from './shared.js';
+import { pageHead, backLink, emptyState, avatar, filterChips, listItemLink, rerenderView } from './shared.js';
 
 const ui = { ageGroup: '', hidden: new Set() };
 
@@ -47,7 +47,7 @@ function renderPicker(container) {
   add(container, groups.length > 1 ? filterChips({
     label: 'Age group', value: ui.ageGroup,
     options: groups.map((g) => ({ value: g, label: g })),
-    onChange: (v) => { ui.ageGroup = v; container.replaceChildren(); render(container, {}); },
+    onChange: (v) => { ui.ageGroup = v; rerenderView(container, render, {}); },
   }) : null);
 
   const list = players.filter((p) => !ui.ageGroup || p.ageGroup === ui.ageGroup);
@@ -123,11 +123,11 @@ function renderPlayer(container, playerId) {
       // Match the viewBox to the screen so axis labels render near real size on phones.
       const width = Math.min(640, Math.max(300, window.innerWidth - 64));
       chartWrap.replaceChildren(lineChart(series, { yMin: 1, yMax: MAX_SCORE, hidden: ui.hidden, width }));
-      legend.replaceChildren(...series.map((s) => h('button', {
-        type: 'button', class: 'legend-item', 'aria-pressed': String(!ui.hidden.has(s.key)),
+      keepFocus(legend, () => legend.replaceChildren(...series.map((s) => h('button', {
+        type: 'button', class: 'legend-item', 'aria-pressed': String(!ui.hidden.has(s.key)), dataset: { focusKey: `legend-${s.key}` },
         style: { '--dot': s.color },
         onclick: () => { if (ui.hidden.has(s.key)) ui.hidden.delete(s.key); else ui.hidden.add(s.key); draw(); },
-      }, h('span', { class: 'legend-dot' }), s.label)));
+      }, h('span', { class: 'legend-dot' }), s.label))));
     };
     draw();
     chartCard.append(legend, chartWrap);

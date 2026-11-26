@@ -8,7 +8,7 @@ import { icon } from '../ui/icons.js';
 import { formatDuration, plural } from '../utils/format.js';
 import { normalizeDrill, validateDrill, filterDrills, listToLines } from '../models/drills.js';
 import { deleteDrill, sessionsUsingDrill } from '../actions.js';
-import { pageHead, emptyState, fab, filterChips, searchBox } from './shared.js';
+import { pageHead, emptyState, fab, filterChips, searchBox, rerenderView } from './shared.js';
 
 const ui = { query: '', ageGroup: '' };
 
@@ -46,7 +46,7 @@ export function render(container) {
       allLabel: 'All ages',
       value: ui.ageGroup,
       options: settings.ageGroups.map((g) => ({ value: g, label: g })),
-      onChange: (v) => { ui.ageGroup = v; container.replaceChildren(); render(container); },
+      onChange: (v) => { ui.ageGroup = v; rerenderView(container, render); },
     }),
     listWrap,
     fab('Add drill', () => openDrillForm()),

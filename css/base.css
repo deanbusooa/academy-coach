@@ -124,9 +124,38 @@ a { color: var(--c-pitch); }
 img, svg { max-width: 100%; }
 button, input, select, textarea { font: inherit; color: inherit; }
 
+/* Keyboard focus ring: amber with a dark halo so it shows on white, green,
+   navy and amber surfaces alike. Mouse/touch focus shows nothing (:focus-visible). */
+:focus { outline: none; }
 :focus-visible {
   outline: 3px solid var(--c-accent);
   outline-offset: 2px;
+  box-shadow: 0 0 0 6px var(--c-navy);
+}
+/* Elements inside clipped containers (lists, drill cards) draw the ring inside. */
+.list :focus-visible,
+.drill > summary:focus-visible {
+  outline-offset: -4px;
+  box-shadow: inset 0 0 0 7px var(--c-navy);
+}
+/* On amber buttons the amber ring would vanish: invert it. */
+.btn-primary:focus-visible,
+.fab:focus-visible {
+  outline-color: var(--c-navy);
+  box-shadow: 0 0 0 6px var(--c-accent);
+}
+.nav a:focus-visible { outline-offset: -4px; box-shadow: none; }
+
+/* Respect "reduce motion": no slide/fade/scale animations or smooth scrolling. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 .visually-hidden {

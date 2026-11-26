@@ -46,7 +46,7 @@ export function render(container, { id }) {
           h('span', { class: 'badge' }, player.ageGroup),
           player.position ? h('span', { class: 'badge badge-muted' }, player.position) : null,
           player.archived ? h('span', { class: 'badge badge-warn' }, 'Archived') : null)),
-      h('button', { class: 'btn btn-sm', onclick: () => openPlayerForm(player) }, icon('edit'), 'Edit')),
+      h('button', { class: 'btn btn-sm', dataset: { focusKey: 'edit' }, onclick: () => openPlayerForm(player) }, icon('edit'), 'Edit')),
 
     player.archived ? h('div', { class: 'card archived-banner' },
       h('p', {}, 'Archived: hidden from the roster, registers and booking lists. Attendance, bookings and ratings are kept.'),

@@ -98,6 +98,7 @@ function bookingCard(b, player, settings) {
       h('span', { class: 'booking-focus' }, [b.focusArea || 'General', b.location].filter(Boolean).join(' · '))),
     h('button', {
       class: ['paid-toggle', b.paid && 'on'], type: 'button', 'aria-pressed': String(b.paid),
+      dataset: { focusKey: `paid-${b.id}` },
       'aria-label': b.paid ? 'Mark as unpaid' : 'Mark as paid',
       onclick: () => togglePaid(b),
     }, b.paid ? icon('check') : null, b.paid ? 'Paid' : formatMoney(b.price, settings.currency)));

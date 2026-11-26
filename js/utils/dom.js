@@ -62,6 +62,32 @@ export function clear(el) {
   return el;
 }
 
+// ---------- focus across re-renders ----------
+// Views rebuild their DOM on every store change, which would drop keyboard
+// focus to <body>. Give stable controls a `data-focus-key` and wrap the
+// re-render in keepFocus() to put focus back on the equivalent new element.
+
+function focusedKey(container) {
+  const el = document.activeElement;
+  if (!el || !container.contains(el)) return null;
+  return el.closest('[data-focus-key]')?.dataset.focusKey ?? null;
+}
+
+function refocus(container, key) {
+  if (!key) return false;
+  const el = container.querySelector(`[data-focus-key="${CSS.escape(key)}"]`);
+  if (!el) return false;
+  el.focus({ preventScroll: true });
+  return true;
+}
+
+/** Run a re-render of `container` and restore focus to the same keyed control. */
+export function keepFocus(container, rerender) {
+  const key = focusedKey(container);
+  rerender();
+  return refocus(container, key);
+}
+
 export function setTitle(text) {
   const t = document.getElementById('page-title');
   if (t) t.textContent = text || '';

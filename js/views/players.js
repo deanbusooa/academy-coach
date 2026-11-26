@@ -8,7 +8,7 @@ import { toast } from '../ui/toast.js';
 import { plural } from '../utils/format.js';
 import { POSITIONS, normalizePlayer, validatePlayer, filterPlayers, countByAgeGroup, activePlayers } from '../models/players.js';
 import { deletePlayer, playerDependents } from '../actions.js';
-import { pageHead, emptyState, fab, avatar, filterChips, searchBox, ageGroupOptions, listItemLink } from './shared.js';
+import { pageHead, emptyState, fab, avatar, filterChips, searchBox, ageGroupOptions, listItemLink, rerenderView } from './shared.js';
 
 // View-local UI state survives re-renders triggered by store changes.
 const ui = { query: '', ageGroup: '', archived: false };
@@ -41,7 +41,7 @@ export function render(container) {
       ? h('ul', { class: 'list' }, filtered.map(playerRow))
       : h('p', { class: 'empty' }, ui.archived ? 'No archived players match.' : 'No players match.'));
   };
-  const rerender = () => { container.replaceChildren(); render(container); };
+  const rerender = () => rerenderView(container, render);
 
   add(container,
     searchBox({ value: ui.query, placeholder: 'Search players, positions, parents', onInput: (v) => { ui.query = v; renderList(); } }),
@@ -53,7 +53,7 @@ export function render(container) {
         onChange: (v) => { ui.ageGroup = v; rerender(); },
       })),
       archivedCount ? h('button', {
-        type: 'button', class: 'chip', 'aria-pressed': String(ui.archived),
+        type: 'button', class: 'chip', 'aria-pressed': String(ui.archived), dataset: { focusKey: 'chip-archived' },
         onclick: () => { ui.archived = !ui.archived; ui.ageGroup = ''; rerender(); },
       }, `Archived · ${archivedCount}`) : null),
     ui.archived ? h('p', { class: 'muted hint-line' }, 'Archived players are hidden from the roster, registers and booking lists. Their history is kept.') : null,

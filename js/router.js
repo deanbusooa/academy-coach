@@ -1,3 +1,5 @@
+import { keepFocus } from './utils/dom.js';
+
 // Minimal hash router.
 // Routes look like { path: '/players/:id', view, title, nav }.
 // URLs look like #/players/abc?tab=x — params and query are passed to render().
@@ -66,16 +68,20 @@ export function startRouter({ routes, container, fallback = '/', onRoute }) {
     const scrollY = window.scrollY;
     current = { ...found, path, query };
 
-    container.replaceChildren();
-    try {
-      found.route.view.render(container, found.params, query);
-    } catch (err) {
-      console.error('[router] view failed', err);
-      const p = document.createElement('p');
-      p.className = 'empty';
-      p.textContent = 'Something went wrong showing this page.';
-      container.append(p);
-    }
+    // Same page re-rendering after a data change: keep keyboard focus on the
+    // equivalent control (e.g. the register tile just toggled).
+    keepFocus(container, () => {
+      container.replaceChildren();
+      try {
+        found.route.view.render(container, found.params, query);
+      } catch (err) {
+        console.error('[router] view failed', err);
+        const p = document.createElement('p');
+        p.className = 'empty';
+        p.textContent = 'Something went wrong showing this page.';
+        container.append(p);
+      }
+    });
     onRoute?.(current);
 
     if (keepScroll && !changedRoute) window.scrollTo(0, scrollY);

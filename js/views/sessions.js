@@ -11,7 +11,7 @@ import {
   normalizeSession, validateSession, splitUpcomingPast, totalDuration,
   attendanceSummary, sessionRoster,
 } from '../models/sessions.js';
-import { pageHead, emptyState, fab, filterChips, ageGroupOptions, listItemLink } from './shared.js';
+import { pageHead, emptyState, fab, filterChips, ageGroupOptions, listItemLink, rerenderView } from './shared.js';
 
 const ui = { tab: 'upcoming', ageGroup: '' };
 
@@ -39,13 +39,13 @@ export function render(container) {
 
   const filtered = ui.ageGroup ? sessions.filter((s) => s.ageGroup === ui.ageGroup) : sessions;
   const { upcoming, past } = splitUpcomingPast(filtered, today);
-  const rerender = () => { container.replaceChildren(); render(container); };
+  const rerender = () => rerenderView(container, render);
   const usedGroups = settings.ageGroups.filter((g) => sessions.some((s) => s.ageGroup === g));
 
   add(container,
     h('div', { class: 'segmented', role: 'tablist' },
       ['upcoming', 'past'].map((t) => h('button', {
-        type: 'button', role: 'tab', 'aria-selected': String(ui.tab === t),
+        type: 'button', role: 'tab', 'aria-selected': String(ui.tab === t), dataset: { focusKey: `tab-${t}` },
         onclick: () => { ui.tab = t; rerender(); },
       }, t === 'upcoming' ? `Upcoming (${upcoming.length})` : `Past (${past.length})`))),
     usedGroups.length > 1 ? filterChips({
