@@ -69,6 +69,13 @@ test('router: parse and match with params + query', () => {
   eq(href('/bookings', { week: '2026-11-23', empty: '' }), '#/bookings?week=2026-11-23');
 });
 
+test('router: malformed %-escape does not throw (regression)', () => {
+  const routes = [{ path: '/players/:id' }];
+  eq(matchRoute(routes, '/players/%E0%A4%A'), null);
+  eq(matchRoute(routes, '/players/%'), null);
+  eq(matchRoute(routes, '/players/a%20b').params, { id: 'a b' });
+});
+
 // ---------- players ----------
 
 test('players: normalize trims and validates', () => {

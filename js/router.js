@@ -27,7 +27,11 @@ export function matchRoute(routes, path) {
     const m = route._c.regex.exec(path);
     if (m) {
       const params = {};
-      route._c.keys.forEach((k, i) => { params[k] = decodeURIComponent(m[i + 1]); });
+      try {
+        route._c.keys.forEach((k, i) => { params[k] = decodeURIComponent(m[i + 1]); });
+      } catch {
+        return null; // malformed %-escape (e.g. a hand-edited URL): treat as no match → fallback route
+      }
       return { route, params };
     }
   }
