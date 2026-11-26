@@ -8,7 +8,7 @@ import { formatMoney, round1, plural } from '../utils/format.js';
 import { todayISO, formatDate, relativeDay, localDateOf } from '../utils/date.js';
 import { telHref } from '../models/players.js';
 import { playerAttendance } from '../models/sessions.js';
-import { sortBookings, totals, endTime, isCancelled } from '../models/bookings.js';
+import { sortBookings, totals, endTime, isCancelled, refundsDueTotal } from '../models/bookings.js';
 import { ratingsForPlayer, latestScores, average, SKILLS } from '../models/ratings.js';
 import { openPlayerForm, setArchived, confirmDeletePlayer } from './players.js';
 import { openBookingForm } from './bookings.js';
@@ -31,6 +31,8 @@ export function render(container, { id }) {
   const bookings = sortBookings(store.getAll('bookings').filter((b) => b.playerId === id && !isCancelled(b)));
   const upcoming = bookings.filter((b) => b.date >= today);
   const owed = totals(bookings.filter((b) => b.date <= today));
+  // Money owed back to this family (paid 1-1s that were cancelled).
+  const refundDue = refundsDueTotal(store.getAll('bookings').filter((b) => b.playerId === id));
   const ratings = ratingsForPlayer(store.getAll('ratings'), id);
   const latest = latestScores(ratings);
   const avg = average(latest);
@@ -63,7 +65,8 @@ export function render(container, { id }) {
       stat(att.pct === null ? '—' : `${att.pct}%`, 'Attendance', att.pct !== null && att.pct < 60 ? 'bad' : ''),
       stat(`${att.attended}/${att.total}`, 'Sessions'),
       stat(avg === null ? '—' : round1(avg).toFixed(1), 'Avg rating'),
-      stat(formatMoney(owed.unpaid, settings.currency), 'Unpaid', owed.unpaid > 0 ? 'bad' : 'ok')),
+      stat(formatMoney(owed.unpaid, settings.currency), 'Unpaid', owed.unpaid > 0 ? 'bad' : 'ok'),
+      refundDue > 0 ? stat(formatMoney(refundDue, settings.currency), 'Refund due', 'warn') : null),
   );
 
   // Contact

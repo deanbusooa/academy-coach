@@ -702,6 +702,7 @@ test('actions: deletePlayer is refused while the player has refunds due (regress
 
   eq(bookings.refundsDueForPlayer(store.getAll('bookings'), p.id).map((b) => b.id), [paid.id]);
   eq(playerDependents(p.id).refundsDue.map((b) => b.id), [paid.id]);
+  eq(bookings.refundsDueTotal(store.getAll('bookings').filter((b) => b.playerId === p.id)), 30, 'player page "Refund due"');
   eq(deletePlayer(p.id), false, 'refused');
   assert(store.get('players', p.id), 'player kept');
   eq(store.getAll('bookings').length, 2);
@@ -709,6 +710,7 @@ test('actions: deletePlayer is refused while the player has refunds due (regress
 
   store.upsert('bookings', bookings.markRefunded(store.get('bookings', paid.id)));
   eq(playerDependents(p.id).refundsDue, []);
+  eq(bookings.refundsDueTotal(store.getAll('bookings')), 0, 'refunded: no longer due');
   assert(deletePlayer(p.id), 'allowed once refunded');
   eq(store.get('players', p.id), null);
   eq(store.getAll('bookings').length, 0);

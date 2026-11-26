@@ -20,6 +20,12 @@ test('cannot permanently delete a player with refunds due until they are marked 
   await page.getByRole('dialog').last().getByRole('button', { name: /^Archive & cancel/ }).click();
   await expect(page.locator('.archived-banner')).toBeVisible();
 
+  // Player page shows the refund next to Unpaid.
+  const refundStat = page.locator('.stat', { has: page.locator('.label', { hasText: 'Refund due' }) });
+  await expect(refundStat).toHaveCount(1);
+  await expect(refundStat.locator('.value')).toHaveText(/30/);
+  await expect(refundStat).toHaveClass(/warn/);
+
   // Delete is refused, listing what's owed.
   await page.getByRole('button', { name: 'Delete permanently…' }).click();
   dialog = page.getByRole('dialog');
@@ -33,6 +39,7 @@ test('cannot permanently delete a player with refunds due until they are marked 
   // Settle it, then delete works.
   await page.locator('.refunds-card .list-item', { hasText: 'Mia Novak' }).getByRole('button', { name: /Mark refunded/ }).click();
   await page.goto(`/#/players/${mia.id}`);
+  await expect(refundStat).toHaveCount(0); // nothing due any more
   await page.getByRole('button', { name: 'Delete permanently…' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Delete permanently' }).click();
   await expect(page).toHaveURL(/#\/players$/);

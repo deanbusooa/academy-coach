@@ -412,6 +412,7 @@
 }
 .stat.ok .value { color: var(--c-ok); }
 .stat.bad .value { color: var(--c-bad); }
+.stat.warn .value { color: var(--c-warn); }
 
 .kv { display: grid; grid-template-columns: max-content 1fr; gap: var(--s-2) var(--s-4); margin: 0; }
 .kv dt { color: var(--c-muted); font-size: var(--fs-sm); font-weight: 600; }
