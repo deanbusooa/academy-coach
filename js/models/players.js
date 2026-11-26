@@ -18,6 +18,8 @@ export function normalizePlayer(input = {}) {
     notes: str(input.notes),
     // Archived players leave the roster/registers/pickers but keep all their history.
     archived: input.archived === true,
+    // When they were archived (for "delete archived players older than N months").
+    archivedAt: input.archived === true && typeof input.archivedAt === 'string' ? input.archivedAt : null,
     // When they joined the squad (attendance counts from here). Older records
     // without one fall back to the day they were added to the app.
     joinedOn: isISODate(input.joinedOn) ? input.joinedOn : localDateOf(input.createdAt),
@@ -95,6 +97,25 @@ export function ageGroupRemovalBlocker(group, { active, archived }) {
 export function ageGroupUsageLabel({ active, archived }) {
   const main = `${active} player${active === 1 ? '' : 's'}`;
   return archived ? `${main} · ${archived} archived` : main;
+}
+
+/** ISO timestamp `months` calendar months before `now`. */
+export function monthsAgo(months, now = new Date()) {
+  const d = new Date(now);
+  d.setMonth(d.getMonth() - months);
+  return d.toISOString();
+}
+
+/**
+ * Archived players archived before `cutoffIso`. Players archived before
+ * archivedAt existed fall back to their last update.
+ */
+export function archivedBefore(players, cutoffIso) {
+  return sortPlayers(players.filter((p) => {
+    if (!p.archived) return false;
+    const at = p.archivedAt || p.updatedAt || p.createdAt;
+    return typeof at === 'string' && at < cutoffIso;
+  }));
 }
 
 export function countByAgeGroup(players) {

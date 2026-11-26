@@ -8,14 +8,14 @@ import { confirmDialog, openModal } from '../ui/modal.js';
 import { toast } from '../ui/toast.js';
 import { CURRENCIES, plural } from '../utils/format.js';
 import { formatDate, daysBetween, todayISO, localDateOf } from '../utils/date.js';
-import { ageGroupUsage, ageGroupUsageLabel, ageGroupRemovalBlocker } from '../models/players.js';
-import { renameAgeGroup } from '../actions.js';
+import { ageGroupUsage, ageGroupUsageLabel, ageGroupRemovalBlocker, archivedBefore, monthsAgo } from '../models/players.js';
+import { renameAgeGroup, deleteArchivedOlderThan } from '../actions.js';
 import {
   exportBackup, prepareBackup, readBackupFile, validateBackup, backupToState,
   isEncryptedBackup, decryptBackup, latestChangeAt, compareBackupAge, MIN_PASSPHRASE,
 } from '../backup.js';
 import { loadDemoData } from '../demo.js';
-import { pageHead } from './shared.js';
+import { pageHead, rerenderView } from './shared.js';
 
 export function render(container) {
   setTitle('Settings');
@@ -27,6 +27,7 @@ export function render(container) {
     backupCard(meta),
     ageGroupsCard(settings),
     preferencesCard(settings),
+    yourDataCard(),
     demoCard(),
     dangerCard(),
     h('p', { class: 'muted', style: { fontSize: 'var(--fs-sm)', textAlign: 'center' } },
@@ -358,6 +359,72 @@ function demoCard() {
     h('p', { class: 'muted' }, 'Load a small sample squad with drills, sessions, bookings and ratings. You can reset it afterwards.'),
     h('button', { class: 'btn', type: 'button', onclick: () => { if (loadDemoData()) { toast('Demo data loaded'); location.hash = '#/players'; } } },
       icon('ball'), 'Load demo data'));
+}
+
+// ---------- your data (privacy) ----------
+
+const RETENTION_MONTHS = [6, 12, 24];
+const retentionUi = { months: 12 };
+
+function yourDataCard() {
+  const players = store.getAll('players');
+  const archived = players.filter((p) => p.archived).length;
+  const n = (c) => store.getAll(c).length;
+  const old = archivedBefore(players, monthsAgo(retentionUi.months));
+
+  const select = h('select', { class: 'select', id: 'retention-months', dataset: { focusKey: 'retention' } },
+    RETENTION_MONTHS.map((m) => h('option', { value: String(m), selected: m === retentionUi.months }, `${m} months`)));
+  select.addEventListener('change', () => {
+    retentionUi.months = Number(select.value);
+    // No data changed, so re-render this view directly.
+    const view = document.getElementById('view');
+    if (view) rerenderView(view, render);
+  });
+
+  return h('section', { class: 'card your-data' },
+    h('h3', {}, 'Your data'),
+    h('h4', {}, 'What is stored'),
+    h('ul', { class: 'points' },
+      h('li', {}, `Players (${players.length}, ${archived} archived): name, age group, position, joined date, parent name, phone and email, notes.`),
+      h('li', {}, `Group sessions (${n('sessions')}) with attendance, and drills (${n('drills')}).`),
+      h('li', {}, `1-1 bookings (${n('bookings')}): times, price, payment and refund status, responsible adult, drop-off / collection notes.`),
+      h('li', {}, `Skill ratings (${n('ratings')}) with notes.`)),
+    h('h4', {}, 'Where'),
+    h('ul', { class: 'points' },
+      h('li', {}, 'Only in this browser, on this device. There is no account or server, and no analytics or tracking.'),
+      h('li', {}, 'The app itself is downloaded from GitHub Pages, which may log visits like any website. Your data never leaves the device unless you export it.'),
+      h('li', {}, 'Backups are files you create. A plain backup can be read by anyone who has it; an encrypted one needs its passphrase.'),
+      h('li', {}, 'After an import, an undo copy of your previous data stays on this device until you undo or discard it.')),
+    h('h4', {}, 'How to delete'),
+    h('ul', { class: 'points' },
+      h('li', {}, 'One player: archive them, then use "Delete permanently" on their page.'),
+      h('li', {}, 'Everything: "Delete all data" below. That also removes the undo copy.'),
+      h('li', {}, "Or clear this site's data in your browser settings, or remove the home-screen app.")),
+    h('h4', {}, 'Archived players'),
+    h('div', { class: 'row retention' },
+      h('label', { for: 'retention-months' }, 'Archived for more than'),
+      select,
+      h('button', {
+        class: 'btn', type: 'button', disabled: !old.length,
+        onclick: () => deleteOldArchived(retentionUi.months, old),
+      }, icon('trash'), old.length ? `Delete ${plural(old.length, 'archived player')}` : 'None to delete')));
+}
+
+async function deleteOldArchived(months, players) {
+  const names = players.slice(0, 6).map((p) => `• ${p.name}`).join('\n');
+  const more = players.length > 6 ? `\n• …and ${players.length - 6} more` : '';
+  const ok = await confirmDialog({
+    title: `Delete ${plural(players.length, 'archived player')}?`,
+    message: `Archived more than ${months} months ago:\n${names}${more}\n\nTheir ratings, 1-1 bookings and attendance are deleted too. Players with refunds still due are kept. This cannot be undone.`,
+    confirmLabel: 'Delete permanently',
+    danger: true,
+  });
+  if (!ok) return;
+  const result = deleteArchivedOlderThan(months);
+  if (!result.ok) return;
+  const parts = [`Deleted ${plural(result.deleted.length, 'player')}`];
+  if (result.skipped.length) parts.push(`kept ${result.skipped.join(', ')} (refund due)`);
+  toast(parts.join('; '), { icon: result.skipped.length ? 'warning' : null, duration: result.skipped.length ? 6000 : 2600 });
 }
 
 function dangerCard() {

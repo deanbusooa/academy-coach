@@ -5,6 +5,7 @@ import * as store from './store.js';
 import { todayISO, nowTime } from './utils/date.js';
 import { upcomingForPlayer, cancelBooking, isCancelled, refundsDueForPlayer } from './models/bookings.js';
 import { ratingOn } from './models/ratings.js';
+import { archivedBefore, monthsAgo } from './models/players.js';
 
 /**
  * Delete a player and everything that references them.
@@ -47,7 +48,7 @@ export function archivePlayer(playerId, { today = todayISO(), time = nowTime() }
   if (!player) return false;
   const upcoming = upcomingForPlayer(store.getAll('bookings'), playerId, today, time);
   return store.batch(() => {
-    store.upsert('players', { ...player, archived: true });
+    store.upsert('players', { ...player, archived: true, archivedAt: new Date().toISOString() });
     for (const b of upcoming) store.upsert('bookings', cancelBooking(b));
   });
 }
@@ -85,6 +86,21 @@ export function cancelBookingById(bookingId) {
   const b = store.get('bookings', bookingId);
   if (!b || isCancelled(b)) return null;
   return store.upsert('bookings', cancelBooking(b));
+}
+
+/**
+ * Permanently delete archived players archived more than `months` ago, with
+ * their ratings, bookings and attendance. Players with refunds due are
+ * skipped (same rule as deletePlayer). All-or-nothing save.
+ * @returns {{ ok: boolean, deleted: string[], skipped: string[] }} player names
+ */
+export function deleteArchivedOlderThan(months, now = new Date()) {
+  const candidates = archivedBefore(store.getAll('players'), monthsAgo(months, now));
+  const all = store.getAll('bookings');
+  const skipped = candidates.filter((p) => refundsDueForPlayer(all, p.id).length);
+  const toDelete = candidates.filter((p) => !skipped.includes(p));
+  const ok = !toDelete.length || store.batch(() => { for (const p of toDelete) deletePlayer(p.id); });
+  return { ok, deleted: ok ? toDelete.map((p) => p.name) : [], skipped: skipped.map((p) => p.name) };
 }
 
 /** Delete a drill and remove it from any session plans. */

@@ -82,7 +82,7 @@ function playerRow(p) {
  */
 export async function setArchived(player, archived) {
   if (!archived) {
-    if (!store.upsert('players', { ...player, archived: false })) return false;
+    if (!store.upsert('players', { ...player, archived: false, archivedAt: null })) return false;
     const cancelled = cancelledUpcomingForPlayer(store.getAll('bookings'), player.id, todayISO(), nowTime());
     toast(restoredMessage(player.name, cancelled.length), { icon: cancelled.length ? 'warning' : null, duration: cancelled.length ? 6000 : 2600 });
     return true;
@@ -170,7 +170,6 @@ export function openPlayerForm(player = null) {
       {
         name: 'notes', label: 'Notes', type: 'textarea',
         placeholder: 'Strong foot, goals, what to work on…',
-        hint: 'Saved on this device and in backups, unencrypted. Keep sensitive details elsewhere.',
       },
     ],
     normalize: normalizePlayer,

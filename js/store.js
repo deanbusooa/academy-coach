@@ -400,5 +400,20 @@ export function discardUndoCopy() {
 
 /** @returns {boolean} */
 export function resetAll() {
-  return apply(defaultState());
+  if (!apply(defaultState())) return false;
+  // "Delete everything" means everything: also the undo-import copy and any
+  // unreadable data that was set aside under STORAGE_KEY.corrupt-*.
+  for (const key of storageKeys()) {
+    if (key !== STORAGE_KEY && key.startsWith(`${STORAGE_KEY}.`)) storage.removeItem(key);
+  }
+  notify();
+  return true;
+}
+
+function storageKeys() {
+  if (!storage) return [];
+  if (typeof storage.keys === 'function') return storage.keys(); // test double
+  const out = [];
+  for (let i = 0; i < storage.length; i++) out.push(storage.key(i));
+  return out;
 }

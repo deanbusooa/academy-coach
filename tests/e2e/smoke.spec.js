@@ -152,7 +152,8 @@ test('player notes do not prompt for medical details', async ({ page }) => {
   const notes = page.getByRole('dialog').getByLabel('Notes');
   await expect(notes).toBeVisible();
   expect(await notes.getAttribute('placeholder')).not.toMatch(/medical|health|allerg|condition/i);
-  await expect(page.getByRole('dialog')).toContainText('unencrypted');
+  // No hint text under notes (privacy info lives in Settings → Your data).
+  await expect(page.getByRole('dialog').locator('[data-field="notes"] .hint')).toHaveCount(0);
 });
 
 test('rating twice on the same date replaces it instead of adding a point (regression)', async ({ page }) => {

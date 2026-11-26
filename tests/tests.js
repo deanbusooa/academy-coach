@@ -14,7 +14,10 @@ import {
   validateBackup, buildBackup, backupToState, backupFilename, exportBackup, prepareBackup,
   encryptBackup, decryptBackup, isEncryptedBackup, latestChangeAt, compareBackupAge,
 } from '../js/backup.js';
-import { deletePlayer, deleteDrill, renameAgeGroup, archivePlayer, saveRating, cancelBookingById, playerDependents } from '../js/actions.js';
+import {
+  deletePlayer, deleteDrill, renameAgeGroup, archivePlayer, saveRating, cancelBookingById, playerDependents,
+  deleteArchivedOlderThan,
+} from '../js/actions.js';
 import { loadDemoData } from '../js/demo.js';
 import { parseHash, matchRoute, href } from '../js/router.js';
 
@@ -468,7 +471,7 @@ test('store: malformed backup records are normalised (regression)', () => {
   });
   const loaded = store.getAll('players');
   eq(loaded.length, 2);
-  eqFields(loaded[0], { id: 'p1', name: '42', ageGroup: '', position: '', parentName: '', parentPhone: '', parentEmail: '', notes: '', archived: false, joinedOn: date.localDateOf('2026-11-01T10:00:00.000Z'), createdAt: '2026-11-01T10:00:00.000Z' });
+  eqFields(loaded[0], { id: 'p1', name: '42', ageGroup: '', position: '', parentName: '', parentPhone: '', parentEmail: '', notes: '', archived: false, archivedAt: null, joinedOn: date.localDateOf('2026-11-01T10:00:00.000Z'), createdAt: '2026-11-01T10:00:00.000Z' });
   assert(typeof loaded[1].id === 'string' && loaded[1].id, 'missing id assigned');
   eq(store.get('drills', 'd1').equipment, ['cones', 'bibs']);
   eq(store.get('drills', 'd1').coachingPoints, []);
@@ -772,6 +775,51 @@ test('restore: message says cancelled upcoming 1-1s are not restored', () => {
   eq(bookings.restoredMessage('Leo', 0), 'Leo restored to the roster');
   eq(bookings.restoredMessage('Leo', 1), 'Leo restored. Their 1 cancelled 1-1 is not restored: rebook on the 1-1s page if needed.');
   eq(bookings.restoredMessage('Leo', 2), 'Leo restored. Their 2 cancelled 1-1s are not restored: rebook on the 1-1s page if needed.');
+});
+
+test('privacy: archive stamps archivedAt; delete archived players older than N months', () => {
+  eq(players.monthsAgo(12, new Date('2026-11-26T12:00:00Z')).slice(0, 7), '2025-11');
+  const list = [
+    { id: 'a', name: 'Old', archived: true, archivedAt: '2025-01-10T00:00:00Z' },
+    { id: 'b', name: 'Recent', archived: true, archivedAt: '2026-10-01T00:00:00Z' },
+    { id: 'c', name: 'Legacy', archived: true, updatedAt: '2025-03-01T00:00:00Z' }, // no archivedAt
+    { id: 'd', name: 'Active', archivedAt: '2020-01-01T00:00:00Z' },
+  ];
+  eq(players.archivedBefore(list, '2025-11-26T00:00:00Z').map((p) => p.id), ['c', 'a']);
+  eq(players.normalizePlayer({ name: 'x', archived: true, archivedAt: 'T' }).archivedAt, 'T');
+  eq(players.normalizePlayer({ name: 'x', archived: false, archivedAt: 'T' }).archivedAt, null, 'only while archived');
+
+  store.init({ storage: memoryStorage() });
+  const now = new Date('2026-11-26T12:00:00Z');
+  const P = (name, extra) => store.upsert('players', { name, ageGroup: 'U9', ...extra });
+  const old = P('Old', { archived: true, archivedAt: '2025-01-10T00:00:00Z' });
+  const owed = P('Owed', { archived: true, archivedAt: '2025-02-10T00:00:00Z' });
+  const recent = P('Recent', { archived: true, archivedAt: '2026-10-01T00:00:00Z' });
+  const active = P('Active', {});
+  store.upsert('ratings', { playerId: old.id, date: '2025-01-01', scores: { dribbling: 3 } });
+  store.upsert('bookings', bookings.cancelBooking({ playerId: owed.id, date: '2025-03-01', startTime: '10:00', price: 30, paid: true }));
+
+  const result = deleteArchivedOlderThan(12, now);
+  eq(result, { ok: true, deleted: ['Old'], skipped: ['Owed'] });
+  eq(store.getAll('players').map((p) => p.name).sort(), ['Active', 'Owed', 'Recent']);
+  eq(store.getAll('ratings').length, 0, "old player's ratings deleted too");
+  assert(store.get('players', recent.id) && store.get('players', active.id));
+  eq(deleteArchivedOlderThan(12, now), { ok: true, deleted: [], skipped: ['Owed'] });
+
+  // Archiving stamps archivedAt.
+  assert(archivePlayer(active.id));
+  assert(typeof store.get('players', active.id).archivedAt === 'string');
+});
+
+test('privacy: "Delete all data" also removes the undo copy and set-aside corrupt data', () => {
+  const storage = memoryStorage({ [`${store.STORAGE_KEY}.corrupt-123`]: '{bad', unrelated: 'keep me' });
+  store.init({ storage });
+  store.upsert('players', { name: 'A', ageGroup: 'U9' });
+  store.saveUndoCopy();
+  assert(store.resetAll());
+  eq(store.getAll('players'), []);
+  eq(store.getUndoCopyInfo(), null);
+  eq(storage.keys().sort(), [store.STORAGE_KEY, 'unrelated'].sort());
 });
 
 test('actions: deleteDrill removes from plans; renameAgeGroup updates refs', () => {
