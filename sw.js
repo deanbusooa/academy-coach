@@ -1,7 +1,7 @@
 // Offline support: cache the app shell, serve cache-first, refresh in background.
 // Bump CACHE_VERSION whenever you add/rename files in ASSETS.
 
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const CACHE = `academy-coach-${CACHE_VERSION}`;
 
 const ASSETS = [
