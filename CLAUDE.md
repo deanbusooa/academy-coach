@@ -11,7 +11,7 @@ Plain HTML/CSS/vanilla JS (ES modules). **No frameworks, no dependencies, no bui
   `tests/node-only.js` holds checks that read the source tree (e.g. `sw.js` ASSETS vs files on disk) and only runs under `npm test`.
 - Browser tests (Playwright, the only devDependency): `npm run test:e2e`. Specs live in `tests/e2e/*.spec.js` and run on a `phone` (Pixel 7) and a `desktop` project. Locally, `PW_CHANNEL=chrome npm run test:e2e` uses your installed Chrome; otherwise run `npx playwright install chromium` once. The service worker is blocked by default; the offline test opts in with `test.use({ serviceWorkers: 'allow' })`.
 - CI (`.github/workflows/ci.yml`) runs both suites on every push/PR.
-- Settings → "Load demo data" seeds a sample squad when the roster is empty. Handy for manual checks.
+- Settings → "Load demo data" seeds a sample squad. Only offered (and only allowed) when every collection is empty (`store.isEmpty()`).
 
 ## Architecture
 
@@ -38,9 +38,11 @@ index.html ─▶ js/app.js ─▶ router.js ─▶ views/*.js ─▶ models/*.j
 ### Data model (collections in the store)
 
 ```
-players   { id, name, ageGroup, position, parentName, parentPhone, parentEmail, notes, archived }
+players   { id, name, ageGroup, position, parentName, parentPhone, parentEmail, notes, archived, joinedOn }
+          // joinedOn: ISO date attendance counts from (falls back to the createdAt local day).
           // archived: hidden from roster/registers/pickers (activePlayers, filterPlayers, sessionRoster), history kept.
-          // Archive is the normal "remove"; permanent delete is only offered on an archived player's page.
+          // Archive is the normal "remove" and cancels upcoming 1-1s (actions.archivePlayer);
+          // permanent delete is only offered on an archived player's page.
 drills    { id, name, durationMin, equipment[], coachingPoints[], ageGroups[] (empty = all), notes }
 sessions  { id, date, time, ageGroup, location, title, drillIds[] (ordered), attendance{ playerId: 'present'|'late'|'absent' }, notes }
 bookings  { id, playerId, date, startTime, durationMin, focusArea, price, paid, location, notes }
@@ -56,6 +58,9 @@ Any store write re-renders the **whole current view** (scroll position kept). So
 - View-local UI state (search text, filters, tabs) lives in a module-level `ui` object, never in the DOM.
 - Typing in a search box must not write to the store. Re-render only the list part (see `views/players.js`).
 - Modals live outside `#view`, so they survive re-renders. Read fresh data with `store.get()` inside handlers rather than closing over stale records.
+- **Keyboard focus survives re-renders** only for elements with `data-focus-key` (unique per page, stable across renders, e.g. `att-<playerId>`). The router wraps every render in `keepFocus()`. For in-view re-renders use `rerenderView(container, render)` from `views/shared.js`, or `keepFocus(el, fn)` for a partial one. Give any new control that triggers a re-render a focus key.
+- **Other tabs:** the store listens for `storage` events and reloads + notifies, so another tab's write re-renders this one. Don't cache store data across renders.
+- Writes return `null`/`false` if saving failed (state rolled back, toast shown by the `store.onSaveError` handler in `app.js`). Check the result before navigating or showing a success toast. `openFormModal`'s `onSave` returns `false` to keep the sheet open.
 
 ## Conventions
 
@@ -68,7 +73,8 @@ Any store write re-renders the **whole current view** (scroll position kept). So
 - **Cross-collection changes** go in `actions.js`, wrapped in `store.batch()` (one save, one re-render).
 - **CSS:** mobile-first; breakpoints 560/640/768/1024px. Use tokens from `base.css` (`--c-*`, `--s-*`, `--r-*`), with no hard-coded colours in components. Dark mode is automatic via `prefers-color-scheme` and the tokens. Tap targets ≥ 44px (`--tap`). Inputs use 16px font (prevents iOS zoom).
 - Inline custom properties must go through `h(..., { style: { '--dot': c } })`. `h()` uses `setProperty` for `--*` keys, because plain assignment silently drops them.
-- Accessibility: buttons for actions and links for navigation; `aria-pressed` on toggles; `aria-label` on icon-only buttons.
+- Accessibility: buttons for actions and links for navigation; `aria-pressed` on toggles; `aria-label` on icon-only buttons. Open dialogs through `ui/modal.js` (it sets `inert` on everything behind the top dialog and returns focus to the opener). Don't remove the global `:focus-visible` ring. Animations must be decorative: `prefers-reduced-motion` switches them off.
+- Stored text is unencrypted (device and backups). Don't add fields or prompts that invite medical or other sensitive data.
 
 ## How to…
 

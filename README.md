@@ -2,7 +2,7 @@
 
 Academy Coach is a training companion for football coaches who run kids' group sessions and 1-1 coaching. It runs in the browser on your phone or computer. There's no account, and all data stays on your device.
 
-- **Players:** your roster with age group, position, parent contact (tap to call), and notes.
+- **Players:** your roster with age group, position, the date they joined, parent contact (tap to call), and notes. Players who leave can be archived: they drop off the roster and registers, and their history is kept.
 - **Group sessions:** plan a session from your drill library, see the total time and kit list, and take the register on the pitch with one tap per player.
 - **1-1 sessions:** a weekly calendar of bookings, with paid/unpaid tracking, weekly totals, and a list of everyone who still owes you.
 - **Progress:** rate players 1–5 on dribbling, passing, first touch, shooting, defending, and fitness, then see their trend over time.
@@ -20,21 +20,38 @@ npm start                    # serves on http://localhost:8080 (uses npx serve)
 python -m http.server 8080
 ```
 
-To use it on your phone, host the folder on any static host (GitHub Pages, Netlify, and so on). Open it, then choose **Add to Home Screen**.
+To use it on your phone, open the hosted version (see **Deploying** below) and choose **Add to Home Screen**.
 
 To try it with sample data, open **Settings → Load demo data**.
 
 ## Tests
 
 ```bash
-npm test                     # runs the unit tests in Node
+npm install                  # once: installs Playwright, the only dev dependency
+npm test                     # unit tests in Node (no browser needed)
+npm run test:e2e             # browser tests: phone and desktop layouts
+npm run test:all             # both
 ```
 
-You can also open `/tests/index.html` in the browser while the app is being served.
+The browser tests need a Chromium. Run `npx playwright install chromium` once, or reuse your installed Chrome with `PW_CHANNEL=chrome npm run test:e2e`.
+
+They cover the full coach workflow (including backup and restore), offline loading, two open tabs, keyboard-only use of the register, archiving, and age-group rules. You can also open `/tests/index.html` in the browser while the app is served, to run the unit tests there.
+
+GitHub Actions runs both suites on every push and pull request.
+
+## Deploying
+
+Every push to `main` that passes the tests is published to GitHub Pages by `.github/workflows/ci.yml`. Only the app files are published (`index.html`, `manifest.webmanifest`, `sw.js`, `css/`, `js/`, `assets/`).
+
+One-time setup: in the GitHub repo, go to **Settings → Pages → Build and deployment** and set **Source** to **GitHub Actions**. The app is then at `https://<user>.github.io/academy-coach/`. GitHub Pages on a private repository needs a paid GitHub plan.
+
+When you change any app file, bump `CACHE_VERSION` in `sw.js`. Otherwise installed copies keep the old version for one extra visit.
 
 ## Your data
 
 Everything is saved in this browser's local storage on this device. Clearing browser data deletes it. Use **Settings → Export backup** regularly, and keep the file somewhere safe.
+
+The data and backup files aren't encrypted. They hold children's names and parents' contact details, so keep backups private, and don't store medical or other sensitive details in notes.
 
 On a phone or tablet, **Export backup** opens the share sheet. Choose **Save to Files** (iPhone/iPad) or a cloud drive, or email the file to yourself. On a computer it downloads normally.
 
