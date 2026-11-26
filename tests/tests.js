@@ -98,6 +98,42 @@ test('players: filter by query and age group, sorted', () => {
   eq(players.filterPlayers(list, { query: 'forw' }).map((p) => p.id), ['3', '1']);
 });
 
+test('players: archived hidden by default, listed separately', () => {
+  const list = [
+    { id: '1', name: 'Active', ageGroup: 'U9' },
+    { id: '2', name: 'Gone', ageGroup: 'U9', archived: true },
+  ];
+  eq(players.filterPlayers(list, {}).map((p) => p.id), ['1']);
+  eq(players.filterPlayers(list, { archived: true }).map((p) => p.id), ['2']);
+  eq(players.activePlayers(list).map((p) => p.id), ['1']);
+  eq(players.normalizePlayer({ name: 'x', archived: true }).archived, true);
+  eq(players.normalizePlayer({ name: 'x', archived: 'yes' }).archived, false, 'only literal true archives');
+  eq(players.normalizePlayer({ name: 'x' }).archived, false);
+});
+
+test('sessions: register hides archived players but keeps their past marks', () => {
+  const ps = [
+    { id: 'a', name: 'A', ageGroup: 'U9' },
+    { id: 'b', name: 'B', ageGroup: 'U9', archived: true },
+    { id: 'c', name: 'C', ageGroup: 'U9', archived: true },
+  ];
+  const s = sessions.normalizeSession({ date: '2026-11-01', ageGroup: 'U9', attendance: { c: 'present' } });
+  eq(sessions.sessionRoster(ps, s).map((p) => p.id), ['a', 'c']);
+});
+
+test('players: archiving keeps history; edit form round-trip keeps flag', () => {
+  store.init({ storage: memoryStorage() });
+  const p = store.upsert('players', players.normalizePlayer({ name: 'A', ageGroup: 'U9' }));
+  store.upsert('ratings', { playerId: p.id, date: '2026-11-01', scores: { dribbling: 3 } });
+  store.upsert('bookings', { playerId: p.id, date: '2026-11-01', startTime: '10:00' });
+  store.upsert('players', { ...p, archived: true });
+  eq(store.getAll('ratings').length, 1);
+  eq(store.getAll('bookings').length, 1);
+  // The edit sheet normalises { ...storedValues, ...formFields }; archived must survive.
+  const edited = players.normalizePlayer({ ...store.get('players', p.id), name: 'A Renamed' });
+  eq(edited.archived, true);
+});
+
 test('players: telHref strips formatting', () => {
   eq(players.telHref('+44 (0)7700 900-101'), 'tel:+4407700900101');
   eq(players.telHref(''), null);
@@ -280,7 +316,7 @@ test('store: malformed backup records are normalised (regression)', () => {
   });
   const loaded = store.getAll('players');
   eq(loaded.length, 2);
-  eq(loaded[0], { id: 'p1', name: '42', ageGroup: '', position: '', parentName: '', parentPhone: '', parentEmail: '', notes: '', createdAt: '2026-11-01T10:00:00.000Z' });
+  eq(loaded[0], { id: 'p1', name: '42', ageGroup: '', position: '', parentName: '', parentPhone: '', parentEmail: '', notes: '', archived: false, createdAt: '2026-11-01T10:00:00.000Z' });
   assert(typeof loaded[1].id === 'string' && loaded[1].id, 'missing id assigned');
   eq(store.get('drills', 'd1').equipment, ['cones', 'bibs']);
   eq(store.get('drills', 'd1').coachingPoints, []);

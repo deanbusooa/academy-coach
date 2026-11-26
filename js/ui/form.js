@@ -129,17 +129,24 @@ export function buildForm(fields, values = {}) {
  */
 export function openFormModal({
   title, fields, values = {}, normalize = (x) => x, validate = () => ({}),
-  onSave, onDelete, saveLabel = 'Save', savedMessage = 'Saved', before, after,
+  onSave, onDelete, leftAction, saveLabel = 'Save', savedMessage = 'Saved', before, after,
 }) {
   const { form, read, showErrors } = buildForm(fields, values);
   const submitId = `submit-${Date.now()}`;
   form.id = submitId;
 
+  // Optional footer action on the left. `onDelete` is shorthand for a red Delete button.
+  // leftAction: { label, icon, danger, run } — run() may return false to keep the sheet open.
+  const left = leftAction || (onDelete ? { label: 'Delete', icon: 'trash', danger: true, run: onDelete } : null);
+
   const actions = h('div', { class: 'form-actions' },
-    onDelete ? h('button', { type: 'button', class: 'btn btn-ghost left', style: { color: 'var(--c-bad)' }, onclick: async () => {
-      const result = await onDelete();
-      if (result !== false) m.close();
-    } }, icon('trash'), 'Delete') : null,
+    left ? h('button', {
+      type: 'button', class: 'btn btn-ghost left', style: left.danger ? { color: 'var(--c-bad)' } : null,
+      onclick: async () => {
+        const result = await left.run();
+        if (result !== false) m.close();
+      },
+    }, left.icon ? icon(left.icon) : null, left.label) : null,
     h('button', { type: 'button', class: 'btn', onclick: () => m.close() }, 'Cancel'),
     h('button', { type: 'submit', class: 'btn btn-primary', form: submitId }, icon('check'), saveLabel),
   );

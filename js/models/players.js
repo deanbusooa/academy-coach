@@ -14,6 +14,8 @@ export function normalizePlayer(input = {}) {
     parentPhone: str(input.parentPhone),
     parentEmail: str(input.parentEmail),
     notes: str(input.notes),
+    // Archived players leave the roster/registers/pickers but keep all their history.
+    archived: input.archived === true,
   };
 }
 
@@ -32,9 +34,15 @@ export function sortPlayers(players) {
   return players.slice().sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 }
 
-export function filterPlayers(players, { query = '', ageGroup = '' } = {}) {
+export function activePlayers(players) {
+  return players.filter((p) => !p.archived);
+}
+
+/** `archived: true` lists only archived players; by default they are hidden. */
+export function filterPlayers(players, { query = '', ageGroup = '', archived = false } = {}) {
   const q = query.trim().toLowerCase();
   return sortPlayers(players).filter((p) => {
+    if (Boolean(p.archived) !== archived) return false;
     if (ageGroup && p.ageGroup !== ageGroup) return false;
     if (!q) return true;
     return [p.name, p.position, p.parentName].some((f) => (f || '').toLowerCase().includes(q));

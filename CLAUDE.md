@@ -35,7 +35,9 @@ index.html ─▶ js/app.js ─▶ router.js ─▶ views/*.js ─▶ models/*.j
 ### Data model (collections in the store)
 
 ```
-players   { id, name, ageGroup, position, parentName, parentPhone, parentEmail, notes }
+players   { id, name, ageGroup, position, parentName, parentPhone, parentEmail, notes, archived }
+          // archived: hidden from roster/registers/pickers (activePlayers, filterPlayers, sessionRoster), history kept.
+          // Archive is the normal "remove"; permanent delete is only offered on an archived player's page.
 drills    { id, name, durationMin, equipment[], coachingPoints[], ageGroups[] (empty = all), notes }
 sessions  { id, date, time, ageGroup, location, title, drillIds[] (ordered), attendance{ playerId: 'present'|'late'|'absent' }, notes }
 bookings  { id, playerId, date, startTime, durationMin, focusArea, price, paid, location, notes }

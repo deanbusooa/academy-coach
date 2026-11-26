@@ -28,7 +28,8 @@ export function render(container, params) {
 
 function renderPicker(container) {
   setTitle('Progress');
-  const players = sortPlayers(store.getAll('players'));
+  // Archived players' progress stays reachable from their profile page.
+  const players = sortPlayers(store.getAll('players').filter((p) => !p.archived));
   const ratings = store.getAll('ratings');
   const settings = store.getSettings();
 

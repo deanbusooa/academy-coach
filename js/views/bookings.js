@@ -113,7 +113,7 @@ export function openBookingForm(input = {}) {
   const settings = store.getSettings();
   const isEdit = Boolean(input.id);
   const players = store.getAll('players');
-  if (!players.length) { toast('Add a player first', { type: 'error' }); return; }
+  if (!isEdit && !players.some((p) => !p.archived)) { toast('Add a player first', { type: 'error' }); return; }
 
   const values = isEdit ? input : {
     date: todayISO(),
@@ -128,7 +128,7 @@ export function openBookingForm(input = {}) {
     title: isEdit ? 'Edit 1-1 booking' : 'New 1-1 booking',
     values,
     fields: [
-      { name: 'playerId', label: 'Player', type: 'select', required: true, options: playerOptions(players) },
+      { name: 'playerId', label: 'Player', type: 'select', required: true, options: playerOptions(players, values.playerId) },
       [
         { name: 'date', label: 'Date', type: 'date', required: true },
         { name: 'startTime', label: 'Start', type: 'time', required: true },

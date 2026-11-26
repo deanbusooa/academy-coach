@@ -128,7 +128,7 @@ function registerCard(session) {
 /** Add a player from another age group (e.g. playing up). */
 function guestPicker(session, players, roster) {
   const inRoster = new Set(roster.map((p) => p.id));
-  const others = players.filter((p) => !inRoster.has(p.id)).sort((a, b) => a.name.localeCompare(b.name));
+  const others = players.filter((p) => !p.archived && !inRoster.has(p.id)).sort((a, b) => a.name.localeCompare(b.name));
   if (!others.length) return null;
   const select = h('select', { class: 'select', 'aria-label': 'Add guest player' },
     h('option', { value: '' }, '+ Add player from another group…'),

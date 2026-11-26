@@ -45,8 +45,10 @@ export function searchBox({ value, placeholder, onInput }) {
   return h('div', { class: 'search' }, icon('search'), input);
 }
 
-export function playerOptions(players) {
-  return sortPlayers(players).map((p) => ({ value: p.id, label: `${p.name}${p.ageGroup ? ` (${p.ageGroup})` : ''}` }));
+/** Select options for active players (plus `keepId`, e.g. the archived player on an existing booking). */
+export function playerOptions(players, keepId = null) {
+  return sortPlayers(players.filter((p) => !p.archived || p.id === keepId))
+    .map((p) => ({ value: p.id, label: `${p.name}${p.ageGroup ? ` (${p.ageGroup})` : ''}${p.archived ? ' · archived' : ''}` }));
 }
 
 /** Age groups from settings plus any extra value currently in use. */

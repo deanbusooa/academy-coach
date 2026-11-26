@@ -55,12 +55,13 @@ export function markAll(session, playerIds, status = 'present') {
 }
 
 /**
- * Players to show on the register: everyone in the age group, plus anyone
- * from another group who already has a mark (e.g. a guest player).
+ * Players to show on the register: active players in the age group, plus
+ * anyone who already has a mark (a guest from another group, or a player
+ * archived since, so past registers keep their history).
  */
 export function sessionRoster(players, session) {
   const marked = new Set(Object.keys(session.attendance || {}));
-  return sortPlayers(players.filter((p) => p.ageGroup === session.ageGroup || marked.has(p.id)));
+  return sortPlayers(players.filter((p) => marked.has(p.id) || (!p.archived && p.ageGroup === session.ageGroup)));
 }
 
 export function attendanceSummary(session, roster) {

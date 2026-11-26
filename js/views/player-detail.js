@@ -1,7 +1,7 @@
 // Player profile: contact, attendance, bookings, latest ratings.
 
 import * as store from '../store.js';
-import { h, setTitle } from '../utils/dom.js';
+import { h, add, setTitle } from '../utils/dom.js';
 import { href } from '../router.js';
 import { icon } from '../ui/icons.js';
 import { formatMoney, round1, plural } from '../utils/format.js';
@@ -10,7 +10,7 @@ import { telHref } from '../models/players.js';
 import { playerAttendance } from '../models/sessions.js';
 import { sortBookings, totals, endTime } from '../models/bookings.js';
 import { ratingsForPlayer, latestScores, average, SKILLS } from '../models/ratings.js';
-import { openPlayerForm } from './players.js';
+import { openPlayerForm, setArchived, confirmDeletePlayer } from './players.js';
 import { openBookingForm } from './bookings.js';
 import { backLink, avatar, emptyState } from './shared.js';
 
@@ -36,7 +36,7 @@ export function render(container, { id }) {
 
   const tel = telHref(player.parentPhone);
 
-  container.append(
+  add(container,
     backLink(href('/players'), 'Players'),
     h('div', { class: 'profile-head' },
       avatar(player.name),
@@ -44,12 +44,18 @@ export function render(container, { id }) {
         h('h2', {}, player.name),
         h('div', { class: 'row' },
           h('span', { class: 'badge' }, player.ageGroup),
-          player.position ? h('span', { class: 'badge badge-muted' }, player.position) : null)),
+          player.position ? h('span', { class: 'badge badge-muted' }, player.position) : null,
+          player.archived ? h('span', { class: 'badge badge-warn' }, 'Archived') : null)),
       h('button', { class: 'btn btn-sm', onclick: () => openPlayerForm(player) }, icon('edit'), 'Edit')),
+
+    player.archived ? h('div', { class: 'card archived-banner' },
+      h('p', {}, 'Archived: hidden from the roster, registers and booking lists. Attendance, bookings and ratings are kept.'),
+      h('button', { class: 'btn btn-pitch', type: 'button', onclick: () => setArchived(player, false) }, icon('restore'), 'Restore to roster'))
+      : null,
 
     h('div', { class: 'quick-actions' },
       h('a', { class: 'btn btn-pitch', href: href(`/progress/${id}`) }, icon('progress'), 'Progress'),
-      h('button', { class: 'btn', onclick: () => openBookingForm({ playerId: id }) }, icon('calendar'), 'Book 1-1'),
+      player.archived ? null : h('button', { class: 'btn', onclick: () => openBookingForm({ playerId: id }) }, icon('calendar'), 'Book 1-1'),
       tel ? h('a', { class: 'btn', href: tel }, icon('phone'), 'Call parent') : null),
 
     h('div', { class: 'stats' },
@@ -100,6 +106,14 @@ export function render(container, { id }) {
 
   container.append(h('p', { class: 'muted', style: { fontSize: 'var(--fs-sm)' } },
     `Added ${formatDate(localDateOf(player.createdAt))}`));
+
+  // Deliberately low-key: archiving is the normal path; deleting erases history.
+  if (player.archived) {
+    container.append(h('button', {
+      type: 'button', class: 'btn btn-ghost btn-sm', style: { color: 'var(--c-bad)' },
+      onclick: () => confirmDeletePlayer(player),
+    }, icon('trash'), 'Delete permanently…'));
+  }
 }
 
 function stat(value, label, tone = '') {
