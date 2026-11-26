@@ -379,6 +379,8 @@
   animation: slide-up 0.2s ease;
 }
 .toast.error { border-left-color: var(--c-bad); }
+.toast.has-icon { display: flex; align-items: center; gap: var(--s-2); }
+.toast-icon { width: 20px; height: 20px; flex: none; color: var(--c-accent); }
 @media (min-width: 768px) { .toast-root { bottom: var(--s-5); } }
 
 /* ---------- Stats ---------- */

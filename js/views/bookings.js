@@ -173,10 +173,12 @@ export function openBookingForm(input = {}) {
       const clashes = findClashes(store.getAll('bookings'), rec);
       const saved = store.upsert('bookings', rec);
       if (!saved) return false;
-      toast(clashes.length
-        ? `Saved — note: overlaps ${plural(clashes.length, 'other booking')}`
-        : isEdit ? 'Booking updated' : `Booked ${formatDuration(saved.durationMin)} on ${formatDate(saved.date)}`,
-      { type: clashes.length ? 'error' : 'info', duration: clashes.length ? 4000 : 2600 });
+      // A clash is a heads-up, not a failure: the booking saved. Info style + warning icon.
+      if (clashes.length) {
+        toast(`Saved — note: overlaps ${plural(clashes.length, 'other booking')}`, { icon: 'warning', duration: 4000 });
+      } else {
+        toast(isEdit ? 'Booking updated' : `Booked ${formatDuration(saved.durationMin)} on ${formatDate(saved.date)}`);
+      }
       // On the calendar, jump to the saved booking's week (no-op if already there).
       if (location.hash.startsWith('#/bookings')) navigate('/bookings', { week: startOfWeek(saved.date) });
       return true;
