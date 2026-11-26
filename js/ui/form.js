@@ -123,7 +123,8 @@ export function buildForm(fields, values = {}) {
 
 /**
  * Standard add/edit sheet.
- * onSave(record) is called with the normalised record once validation passes.
+ * onSave(record) is called with the normalised record once validation passes;
+ * return false from it (e.g. store write failed) to keep the sheet open.
  * onDelete (optional) shows a delete button; return false from it to keep the sheet open.
  */
 export function openFormModal({
@@ -148,7 +149,9 @@ export function openFormModal({
     const record = normalize({ ...values, ...read() });
     if (showErrors(validate(record))) return;
     try {
-      onSave(record);
+      // onSave returns false when the store could not save (the store's
+      // save-error handler has already told the user): keep the sheet open.
+      if (onSave(record) === false) return;
       m.close();
       if (savedMessage) toast(savedMessage);
     } catch (err) {

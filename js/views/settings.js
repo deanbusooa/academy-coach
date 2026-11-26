@@ -73,8 +73,7 @@ async function importFile(file) {
   });
   if (!confirmed) return;
   try {
-    store.replaceAll(backupToState(data));
-    toast('Backup restored');
+    if (store.replaceAll(backupToState(data))) toast('Backup restored');
   } catch (err) {
     toast(err.message || 'Import failed', { type: 'error' });
   }
@@ -90,8 +89,7 @@ function ageGroupsCard(settings) {
     const name = input.value.trim();
     if (!name) return;
     if (settings.ageGroups.some((g) => g.toLowerCase() === name.toLowerCase())) { toast('That age group exists', { type: 'error' }); return; }
-    store.updateSettings({ ageGroups: [...settings.ageGroups, name] });
-    toast(`Added ${name}`);
+    if (store.updateSettings({ ageGroups: [...settings.ageGroups, name] })) toast(`Added ${name}`);
   };
 
   return h('section', { class: 'card' },
@@ -106,7 +104,7 @@ function ageGroupsCard(settings) {
         h('button', { class: 'btn btn-ghost btn-icon btn-sm', type: 'button', 'aria-label': `Remove ${g}`,
           disabled: Boolean(counts[g]) || settings.ageGroups.length === 1,
           title: counts[g] ? 'Move or delete its players first' : null,
-          onclick: () => { store.updateSettings({ ageGroups: settings.ageGroups.filter((x) => x !== g) }); toast(`Removed ${g}`); } }, icon('trash')))))),
+          onclick: () => { if (store.updateSettings({ ageGroups: settings.ageGroups.filter((x) => x !== g) })) toast(`Removed ${g}`); } }, icon('trash')))))),
     h('form', { class: 'row', style: { marginTop: 'var(--s-3)' }, onsubmit: addGroup },
       h('div', { style: { flex: 1 } }, input),
       h('button', { class: 'btn btn-primary', type: 'submit' }, icon('plus'), 'Add')));
@@ -129,7 +127,7 @@ function renameGroup(oldName, groups) {
       if (name !== oldName && groups.some((g) => g.toLowerCase() === name.toLowerCase())) return { name: 'That age group exists' };
       return {};
     },
-    onSave: ({ name }) => { if (name !== oldName) renameAgeGroup(oldName, name); },
+    onSave: ({ name }) => (name === oldName ? true : renameAgeGroup(oldName, name)),
     savedMessage: 'Age group renamed',
   });
 }
@@ -152,8 +150,9 @@ function preferencesCard(settings) {
     if (!(v.defaultPrice >= 0)) errors.defaultPrice = 'Enter 0 or more';
     if (!(v.defaultDuration >= 5)) errors.defaultDuration = 'At least 5 minutes';
     if (showErrors(errors)) return;
-    store.updateSettings({ currency: v.currency, defaultPrice: v.defaultPrice, defaultDuration: Math.round(v.defaultDuration) });
-    toast('Preferences saved');
+    if (store.updateSettings({ currency: v.currency, defaultPrice: v.defaultPrice, defaultDuration: Math.round(v.defaultDuration) })) {
+      toast('Preferences saved');
+    }
   });
   return h('section', { class: 'card' }, h('h3', {}, 'Preferences'), form);
 }
@@ -165,7 +164,7 @@ function demoCard() {
   return h('section', { class: 'card' },
     h('h3', {}, 'Try it out'),
     h('p', { class: 'muted' }, 'Load a small sample squad with drills, sessions, bookings and ratings. You can reset it afterwards.'),
-    h('button', { class: 'btn', type: 'button', onclick: () => { loadDemoData(); toast('Demo data loaded'); location.hash = '#/players'; } },
+    h('button', { class: 'btn', type: 'button', onclick: () => { if (loadDemoData()) { toast('Demo data loaded'); location.hash = '#/players'; } } },
       icon('ball'), 'Load demo data'));
 }
 
@@ -183,8 +182,7 @@ function dangerCard() {
           danger: true,
         });
         if (!ok) return;
-        store.resetAll();
-        toast('All data deleted');
+        if (store.resetAll()) toast('All data deleted');
       },
     }, icon('trash'), 'Delete all data'));
 }

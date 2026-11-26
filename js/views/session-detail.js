@@ -88,7 +88,7 @@ function registerCard(session) {
       h('h3', {}, 'Register'),
       roster.length ? h('button', {
         class: 'btn btn-sm', type: 'button',
-        onclick: () => { store.upsert('sessions', markAll(session, roster.map((p) => p.id))); toast('All marked present'); },
+        onclick: () => { if (store.upsert('sessions', markAll(session, roster.map((p) => p.id)))) toast('All marked present'); },
       }, icon('check'), 'All present') : null),
   );
 
@@ -197,7 +197,7 @@ function openDrillPicker(sessionId) {
     const fresh = store.get('sessions', sessionId);
     // Keep the order the drills appear in the picker.
     const order = filterDrills(store.getAll('drills'), {}).map((d) => d.id).filter((x) => state.selected.has(x));
-    store.upsert('sessions', { ...fresh, drillIds: [...fresh.drillIds, ...order] });
+    if (!store.upsert('sessions', { ...fresh, drillIds: [...fresh.drillIds, ...order] })) return;
     toast(`Added ${plural(order.length, 'drill')}`);
     m.close();
   });

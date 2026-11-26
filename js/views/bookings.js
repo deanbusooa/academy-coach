@@ -105,7 +105,7 @@ function bookingCard(b, player, settings) {
 
 function togglePaid(b) {
   const saved = store.upsert('bookings', { ...b, paid: !b.paid });
-  toast(saved.paid ? 'Marked paid' : 'Marked unpaid');
+  if (saved) toast(saved.paid ? 'Marked paid' : 'Marked unpaid');
 }
 
 /** Add (pass defaults like { date } or { playerId }) or edit (pass a stored booking). */
@@ -148,17 +148,19 @@ export function openBookingForm(input = {}) {
     onSave: (rec) => {
       const clashes = findClashes(store.getAll('bookings'), rec);
       const saved = store.upsert('bookings', rec);
+      if (!saved) return false;
       toast(clashes.length
         ? `Saved — note: overlaps ${plural(clashes.length, 'other booking')}`
         : isEdit ? 'Booking updated' : `Booked ${formatDuration(saved.durationMin)} on ${formatDate(saved.date)}`,
       { type: clashes.length ? 'error' : 'info', duration: clashes.length ? 4000 : 2600 });
       // On the calendar, jump to the saved booking's week (no-op if already there).
       if (location.hash.startsWith('#/bookings')) navigate('/bookings', { week: startOfWeek(saved.date) });
+      return true;
     },
     onDelete: isEdit ? async () => {
       const ok = await confirmDialog({ title: 'Delete this booking?', confirmLabel: 'Delete', danger: true });
       if (!ok) return false;
-      store.remove('bookings', input.id);
+      if (!store.remove('bookings', input.id)) return false;
       toast('Booking deleted');
       return true;
     } : null,

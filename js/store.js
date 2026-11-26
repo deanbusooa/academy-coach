@@ -52,6 +52,8 @@ let lastLoadWarning = null;
 export function init(opts = {}) {
   storage = opts.storage ?? globalThis.localStorage ?? null;
   listeners = new Set();
+  batchDepth = 0;
+  dirty = false;
   lastLoadWarning = null;
   state = defaultState();
 
@@ -150,33 +152,75 @@ export function subscribe(fn) {
   return () => listeners.delete(fn);
 }
 
-function commit() {
-  if (batchDepth > 0) { dirty = true; return; }
-  persist();
+// ---------- save errors ----------
+
+const defaultSaveErrorHandler = (err) => console.error('[store]', err.message, err.cause);
+let saveErrorHandler = defaultSaveErrorHandler;
+
+/**
+ * The one place save failures are reported (app.js shows a toast). Writes never
+ * throw on a failed save: they roll back and return null/false instead.
+ */
+export function onSaveError(fn) {
+  saveErrorHandler = fn || defaultSaveErrorHandler;
+}
+
+function notify() {
   for (const fn of listeners) {
     try { fn(state); } catch (err) { console.error('[store] listener failed', err); }
   }
 }
 
+/** @returns {boolean} true if saved (or no storage) */
 function persist() {
-  if (!storage) return;
+  if (!storage) return true;
   try {
     storage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch (err) {
-    console.error('[store] failed to save', err);
-    throw new Error('Could not save — device storage may be full. Export a backup.');
+    return true;
+  } catch (cause) {
+    const err = new Error('Could not save — device storage may be full. Export a backup and free up space.', { cause });
+    try { saveErrorHandler(err); } catch (e) { console.error('[store] save error handler failed', e); }
+    return false;
   }
 }
 
-/** Group several writes into one save + one notification. */
+/**
+ * Swap in the next state, save, then notify. If saving fails the previous
+ * state is restored so memory never drifts from storage.
+ * Inside a batch, only the swap happens; batch() saves once at the end.
+ * @returns {boolean} whether the change was kept
+ */
+function apply(next) {
+  if (batchDepth > 0) { state = next; dirty = true; return true; }
+  const prev = state;
+  state = next;
+  if (!persist()) { state = prev; return false; }
+  notify();
+  return true;
+}
+
+/**
+ * Group several writes into one save + one notification. All-or-nothing:
+ * if the save fails, or fn throws, every write in the batch is rolled back.
+ * @returns {boolean} whether the batch was saved (always true for nested batches)
+ */
 export function batch(fn) {
+  const outermost = batchDepth === 0;
+  const start = state;
   batchDepth++;
   try {
-    return fn();
-  } finally {
+    fn();
+  } catch (err) {
     batchDepth--;
-    if (batchDepth === 0 && dirty) { dirty = false; commit(); }
+    if (outermost) { state = start; dirty = false; }
+    throw err;
   }
+  batchDepth--;
+  if (!outermost || !dirty) return true;
+  dirty = false;
+  if (!persist()) { state = start; return false; }
+  notify();
+  return true;
 }
 
 // ---------- reads ----------
@@ -210,51 +254,51 @@ export function newId() {
   return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-/** Insert or replace a record by id. Returns the stored record. */
+/**
+ * Insert or replace a record by id.
+ * @returns the stored record, or null if it could not be saved (state unchanged).
+ */
 export function upsert(collection, record) {
   assertCollection(collection);
   const now = new Date().toISOString();
   const list = state[collection];
   const idx = record.id ? list.findIndex((r) => r.id === record.id) : -1;
   let saved;
+  let nextList;
   if (idx >= 0) {
     saved = { ...list[idx], ...record, updatedAt: now };
-    state = { ...state, [collection]: list.map((r, i) => (i === idx ? saved : r)) };
+    nextList = list.map((r, i) => (i === idx ? saved : r));
   } else {
     saved = { ...record, id: record.id || newId(), createdAt: record.createdAt || now, updatedAt: now };
-    state = { ...state, [collection]: [...list, saved] };
+    nextList = [...list, saved];
   }
-  commit();
-  return saved;
+  return apply({ ...state, [collection]: nextList }) ? saved : null;
 }
 
+/** @returns {boolean} false if nothing matched or the save failed */
 export function remove(collection, id) {
   assertCollection(collection);
-  const before = state[collection].length;
-  state = { ...state, [collection]: state[collection].filter((r) => r.id !== id) };
-  if (state[collection].length !== before) commit();
+  const kept = state[collection].filter((r) => r.id !== id);
+  if (kept.length === state[collection].length) return false;
+  return apply({ ...state, [collection]: kept });
 }
 
+/** @returns {number} how many records were removed (0 if the save failed) */
 export function removeWhere(collection, predicate) {
   assertCollection(collection);
   const kept = state[collection].filter((r) => !predicate(r));
   const removed = state[collection].length - kept.length;
-  if (removed) {
-    state = { ...state, [collection]: kept };
-    commit();
-  }
-  return removed;
+  if (!removed) return 0;
+  return apply({ ...state, [collection]: kept }) ? removed : 0;
 }
 
+/** @returns the new settings, or null if the save failed */
 export function updateSettings(patch) {
-  state = { ...state, settings: { ...state.settings, ...patch } };
-  commit();
-  return getSettings();
+  return apply({ ...state, settings: { ...state.settings, ...patch } }) ? getSettings() : null;
 }
 
 export function updateMeta(patch) {
-  state = { ...state, meta: { ...state.meta, ...patch } };
-  commit();
+  return apply({ ...state, meta: { ...state.meta, ...patch } });
 }
 
 // ---------- whole-state operations (backup) ----------
@@ -264,13 +308,12 @@ export function snapshot() {
   return JSON.parse(JSON.stringify(state));
 }
 
-/** Replace all data (used by import). Input must already be validated. */
+/** Replace all data (used by import). Input must already be validated. @returns {boolean} */
 export function replaceAll(data) {
-  state = normalizeState(migrate(JSON.parse(JSON.stringify(data))));
-  commit();
+  return apply(normalizeState(migrate(JSON.parse(JSON.stringify(data)))));
 }
 
+/** @returns {boolean} */
 export function resetAll() {
-  state = defaultState();
-  commit();
+  return apply(defaultState());
 }

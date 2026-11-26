@@ -5,7 +5,7 @@ import * as store from './store.js';
 
 /** Delete a player and everything that references them. */
 export function deletePlayer(playerId) {
-  store.batch(() => {
+  return store.batch(() => {
     store.remove('players', playerId);
     store.removeWhere('ratings', (r) => r.playerId === playerId);
     store.removeWhere('bookings', (b) => b.playerId === playerId);
@@ -29,7 +29,7 @@ export function playerDependents(playerId) {
 
 /** Delete a drill and remove it from any session plans. */
 export function deleteDrill(drillId) {
-  store.batch(() => {
+  return store.batch(() => {
     store.remove('drills', drillId);
     for (const s of store.getAll('sessions')) {
       if (s.drillIds?.includes(drillId)) {
@@ -45,7 +45,7 @@ export function sessionsUsingDrill(drillId) {
 
 /** Rename an age group everywhere it is used. */
 export function renameAgeGroup(oldName, newName) {
-  store.batch(() => {
+  return store.batch(() => {
     const settings = store.getSettings();
     store.updateSettings({ ageGroups: settings.ageGroups.map((g) => (g === oldName ? newName : g)) });
     for (const p of store.getAll('players')) if (p.ageGroup === oldName) store.upsert('players', { ...p, ageGroup: newName });

@@ -101,7 +101,12 @@ export function openDrillForm(drill = null, { onSaved } = {}) {
     ],
     normalize: normalizeDrill,
     validate: validateDrill,
-    onSave: (rec) => { const saved = store.upsert('drills', rec); onSaved?.(saved); },
+    onSave: (rec) => {
+      const saved = store.upsert('drills', rec);
+      if (!saved) return false;
+      onSaved?.(saved);
+      return true;
+    },
     savedMessage: isEdit ? 'Drill updated' : 'Drill added',
     onDelete: isEdit ? async () => {
       const used = sessionsUsingDrill(drill.id);
@@ -112,7 +117,7 @@ export function openDrillForm(drill = null, { onSaved } = {}) {
         danger: true,
       });
       if (!ok) return false;
-      deleteDrill(drill.id);
+      if (!deleteDrill(drill.id)) return false;
       toast('Drill deleted');
       return true;
     } : null,

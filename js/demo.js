@@ -4,7 +4,7 @@ import * as store from './store.js';
 import { todayISO, addDays, startOfWeek } from './utils/date.js';
 
 export function loadDemoData(today = todayISO()) {
-  store.batch(() => {
+  return store.batch(() => {
     const P = (name, ageGroup, position, parentName, parentPhone) =>
       store.upsert('players', { name, ageGroup, position, parentName, parentPhone, parentEmail: '', notes: '' });
 

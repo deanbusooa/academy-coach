@@ -191,7 +191,7 @@ export function openRatingForm(playerId, rating = null) {
     const errors = validateRating(rec);
     const msg = Object.values(errors)[0];
     if (msg) { errorEl.textContent = msg; errorEl.hidden = false; return; }
-    store.upsert('ratings', rec);
+    if (!store.upsert('ratings', rec)) return; // save-error toast already shown; keep form open
     m.close();
     toast(isEdit ? 'Rating updated' : `Rated ${player?.name || ''} for ${formatShortDate(rec.date)}`);
   });
@@ -199,7 +199,7 @@ export function openRatingForm(playerId, rating = null) {
   del?.addEventListener('click', async () => {
     const ok = await confirmDialog({ title: 'Delete this rating?', message: formatDate(rating.date), confirmLabel: 'Delete', danger: true });
     if (!ok) return;
-    store.remove('ratings', rating.id);
+    if (!store.remove('ratings', rating.id)) return;
     m.close();
     toast('Rating deleted');
   });

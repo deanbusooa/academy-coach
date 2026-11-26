@@ -107,7 +107,9 @@ export function openSessionForm(session = null) {
     saveLabel: isEdit ? 'Save' : 'Create & add drills',
     onSave: (rec) => {
       const saved = store.upsert('sessions', rec);
+      if (!saved) return false;
       if (!isEdit) navigate(`/sessions/${saved.id}`);
+      return true;
     },
     savedMessage: isEdit ? 'Session updated' : 'Session created',
     onDelete: isEdit ? async () => {
@@ -118,7 +120,7 @@ export function openSessionForm(session = null) {
         danger: true,
       });
       if (!ok) return false;
-      store.remove('sessions', session.id);
+      if (!store.remove('sessions', session.id)) return false;
       toast('Session deleted');
       navigate('/sessions');
       return true;

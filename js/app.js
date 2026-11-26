@@ -51,6 +51,8 @@ function highlightNav(nav, section) {
 }
 
 function main() {
+  // Single place where failed saves reach the user. Writes roll back and return null/false.
+  store.onSaveError((err) => toast(err.message, { type: 'error', duration: 6000 }));
   store.init();
   const nav = buildNav();
   const router = startRouter({

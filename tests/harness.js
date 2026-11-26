@@ -16,12 +16,19 @@ export function eq(actual, expected, msg = '') {
   if (a !== e) throw new Error(`${msg ? `${msg}: ` : ''}expected ${e}, got ${a}`);
 }
 
-/** In-memory Storage stand-in for store.init({ storage }). */
+/**
+ * In-memory Storage stand-in for store.init({ storage }).
+ * Set `.failing = true` to make setItem throw like a full localStorage.
+ */
 export function memoryStorage(initial = {}) {
   const data = { ...initial };
   return {
+    failing: false,
     getItem: (k) => (k in data ? data[k] : null),
-    setItem: (k, v) => { data[k] = String(v); },
+    setItem(k, v) {
+      if (this.failing) throw new DOMException('Quota exceeded', 'QuotaExceededError');
+      data[k] = String(v);
+    },
     removeItem: (k) => { delete data[k]; },
     keys: () => Object.keys(data),
     _data: data,

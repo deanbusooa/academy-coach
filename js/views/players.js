@@ -91,7 +91,9 @@ export function openPlayerForm(player = null) {
     validate: validatePlayer,
     onSave: (rec) => {
       const saved = store.upsert('players', rec);
+      if (!saved) return false;
       if (!isEdit) navigate(`/players/${saved.id}`);
+      return true;
     },
     savedMessage: isEdit ? 'Player updated' : 'Player added',
     onDelete: isEdit ? async () => {
@@ -106,7 +108,7 @@ export function openPlayerForm(player = null) {
         danger: true,
       });
       if (!ok) return false;
-      deletePlayer(player.id);
+      if (!deletePlayer(player.id)) return false;
       toast('Player deleted');
       navigate('/players');
       return true;

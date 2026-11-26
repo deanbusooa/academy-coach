@@ -305,6 +305,65 @@ test('store: batch notifies once', () => {
   eq(store.getAll('drills').length, 2);
 });
 
+test('store: failed save rolls back and reports via the handler (regression)', () => {
+  const storage = memoryStorage();
+  store.init({ storage });
+  const errorsSeen = [];
+  store.onSaveError((err) => errorsSeen.push(err.message));
+  let notified = 0;
+  store.subscribe(() => notified++);
+  try {
+    const p = store.upsert('players', { name: 'A', ageGroup: 'U9' });
+    const savedJson = storage.getItem(store.STORAGE_KEY);
+    notified = 0;
+    storage.failing = true;
+
+    eq(store.upsert('players', { ...p, name: 'Changed' }), null, 'update returns null');
+    eq(store.get('players', p.id).name, 'A', 'update rolled back');
+    eq(store.upsert('players', { name: 'New', ageGroup: 'U9' }), null);
+    eq(store.getAll('players').length, 1, 'insert rolled back');
+    eq(store.remove('players', p.id), false);
+    eq(store.removeWhere('players', () => true), 0);
+    eq(store.updateSettings({ currency: 'EUR' }), null);
+    eq(store.replaceAll({ schemaVersion: 1 }), false);
+    eq(store.resetAll(), false);
+    eq(store.getAll('players').length, 1, 'still there after failed remove/reset');
+    eq(store.getSettings().currency !== 'EUR', true);
+    eq(notified, 0, 'no re-render for failed writes');
+    eq(storage.getItem(store.STORAGE_KEY), savedJson, 'storage untouched');
+    eq(errorsSeen.length, 7, 'one report per failed write');
+    assert(/Could not save/.test(errorsSeen[0]));
+
+    // Multi-collection batch is all-or-nothing.
+    store.batch(() => {}); // empty batch is fine
+    storage.failing = false;
+    store.upsert('ratings', { playerId: p.id, date: '2026-11-01', scores: { dribbling: 3 } });
+    storage.failing = true;
+    eq(deletePlayer(p.id), false);
+    eq(store.getAll('players').length, 1, 'batch rolled back: player');
+    eq(store.getAll('ratings').length, 1, 'batch rolled back: rating');
+
+    // Recovers once storage works again.
+    storage.failing = false;
+    assert(store.upsert('players', { ...p, name: 'B' }));
+    eq(JSON.parse(storage.getItem(store.STORAGE_KEY)).players[0].name, 'B');
+  } finally {
+    store.onSaveError(null);
+  }
+});
+
+test('store: batch rolls back if its function throws', () => {
+  store.init({ storage: memoryStorage() });
+  store.upsert('drills', { name: 'keep' });
+  let threw = false;
+  try {
+    store.batch(() => { store.upsert('drills', { name: 'temp' }); throw new Error('boom'); });
+  } catch { threw = true; }
+  assert(threw, 'error re-thrown');
+  eq(store.getAll('drills').map((d) => d.name), ['keep']);
+  assert(store.upsert('drills', { name: 'after' }), 'store usable afterwards');
+});
+
 test('store: rejects data from a newer schema', () => {
   let threw = false;
   try { store.migrate({ schemaVersion: store.SCHEMA_VERSION + 1 }); } catch { threw = true; }
