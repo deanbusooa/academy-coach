@@ -17,6 +17,7 @@ test('coach workflow: roster → session → register → 1-1 → rating → bac
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(page).toHaveURL(/#\/players\/.+/);
   await expect(page.getByRole('heading', { level: 2, name: 'Test Kid' })).toBeVisible();
+  await expect(page.getByText(/^Joined /)).toBeVisible(); // joinedOn defaults to today
 
   // --- Plan a session, add two drills, reorder.
   await page.goto('/#/sessions');

@@ -136,12 +136,13 @@ export function openPlayerForm(player = null) {
   const isEdit = Boolean(player);
   openFormModal({
     title: isEdit ? 'Edit player' : 'Add player',
-    values: player || { ageGroup: ui.ageGroup || '' },
+    values: player || { ageGroup: ui.ageGroup || '', joinedOn: todayISO() },
     fields: [
       { name: 'name', label: 'Full name', required: true, autocomplete: 'off' },
       [
         { name: 'ageGroup', label: 'Age group', type: 'select', required: true, options: ageGroupOptions(settings, player?.ageGroup) },
         { name: 'position', label: 'Position', type: 'select', options: POSITIONS, placeholderOption: '—' },
+        { name: 'joinedOn', label: 'Joined', type: 'date', hint: 'Attendance counts from this date' },
       ],
       { name: 'parentName', label: 'Parent / guardian name' },
       [

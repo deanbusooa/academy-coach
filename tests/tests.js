@@ -244,6 +244,22 @@ test('sessions: attendance ignores sessions before the player joined (regression
   eq(sessions.playerAttendance(ss, p, '2026-11-26'), { attended: 2, total: 3, pct: 67 });
 });
 
+test('players: joinedOn drives attendance; defaults to the createdAt day', () => {
+  // Entering an existing squad today: they joined months ago, so earlier sessions count.
+  const p = players.normalizePlayer({ id: 'p', name: 'A', ageGroup: 'U9', joinedOn: '2026-09-01', createdAt: new Date(2026, 10, 20, 9).toISOString() });
+  eq(p.joinedOn, '2026-09-01');
+  const ss = [
+    { date: '2026-08-25', ageGroup: 'U9', attendance: { x: 'present' } }, // before joining
+    { date: '2026-10-01', ageGroup: 'U9', attendance: { x: 'present' } }, // missed
+    { date: '2026-11-01', ageGroup: 'U9', attendance: { p: 'present' } },
+  ];
+  eq(sessions.playerAttendance(ss, p, '2026-11-26'), { attended: 1, total: 2, pct: 50 });
+
+  eq(players.normalizePlayer({ name: 'B', createdAt: new Date(2026, 10, 20, 23, 30).toISOString() }).joinedOn, '2026-11-20');
+  eq(players.normalizePlayer({ name: 'C', joinedOn: '2026-02-30' }).joinedOn, '', 'invalid date dropped');
+  eq(players.normalizePlayer({ name: 'D' }).joinedOn, '');
+});
+
 // ---------- bookings ----------
 
 test('bookings: normalize/validate, end time', () => {
@@ -342,7 +358,7 @@ test('store: malformed backup records are normalised (regression)', () => {
   });
   const loaded = store.getAll('players');
   eq(loaded.length, 2);
-  eqFields(loaded[0], { id: 'p1', name: '42', ageGroup: '', position: '', parentName: '', parentPhone: '', parentEmail: '', notes: '', archived: false, createdAt: '2026-11-01T10:00:00.000Z' });
+  eqFields(loaded[0], { id: 'p1', name: '42', ageGroup: '', position: '', parentName: '', parentPhone: '', parentEmail: '', notes: '', archived: false, joinedOn: date.localDateOf('2026-11-01T10:00:00.000Z'), createdAt: '2026-11-01T10:00:00.000Z' });
   assert(typeof loaded[1].id === 'string' && loaded[1].id, 'missing id assigned');
   eq(store.get('drills', 'd1').equipment, ['cones', 'bibs']);
   eq(store.get('drills', 'd1').coachingPoints, []);

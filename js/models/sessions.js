@@ -109,11 +109,11 @@ export function splitUpcomingPast(sessions, today) {
 /**
  * Attendance record for one player. Counts sessions up to `today` where the
  * register was taken and either the player was marked, or they were eligible
- * (same age group) AND had already joined (session on/after their createdAt local date).
- * An explicit mark always counts, even on a session dated before they were added.
+ * (same age group) AND had already joined (on/after joinedOn, falling back to
+ * the local date of createdAt). An explicit mark always counts.
  */
 export function playerAttendance(sessions, player, today) {
-  const joined = localDateOf(player.createdAt);
+  const joined = player.joinedOn || localDateOf(player.createdAt);
   const relevant = sessions.filter((s) => {
     if (s.date > today || Object.keys(s.attendance || {}).length === 0) return false;
     if (s.attendance?.[player.id]) return true;

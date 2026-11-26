@@ -12,7 +12,7 @@ export function loadDemoData(today = todayISO()) {
   if (!store.isEmpty()) return false;
   return store.batch(() => {
     const P = (name, ageGroup, position, parentName, parentPhone) =>
-      store.upsert('players', { name, ageGroup, position, parentName, parentPhone, parentEmail: '', notes: '' });
+      store.upsert('players', { name, ageGroup, position, parentName, parentPhone, parentEmail: '', notes: '', joinedOn: addDays(today, -120) });
 
     const u9 = [
       P('Leo Martins', 'U9', 'Forward', 'Ana Martins', '+61 491 570 156'),

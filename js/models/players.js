@@ -1,6 +1,8 @@
 // Player domain logic. Pure functions — no DOM, no store access.
 
-export const POSITIONS = ['Goalkeeper', 'Defender', 'Midfielder', 'Forward', 'Utility'];
+import { isISODate, localDateOf } from '../utils/date.js';
+
+export const POSITIONS =['Goalkeeper', 'Defender', 'Midfielder', 'Forward', 'Utility'];
 
 const str = (v) => (v === undefined || v === null ? '' : String(v).trim());
 
@@ -16,6 +18,9 @@ export function normalizePlayer(input = {}) {
     notes: str(input.notes),
     // Archived players leave the roster/registers/pickers but keep all their history.
     archived: input.archived === true,
+    // When they joined the squad (attendance counts from here). Older records
+    // without one fall back to the day they were added to the app.
+    joinedOn: isISODate(input.joinedOn) ? input.joinedOn : localDateOf(input.createdAt),
   };
 }
 

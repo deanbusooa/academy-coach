@@ -105,7 +105,7 @@ export function render(container, { id }) {
   ));
 
   container.append(h('p', { class: 'muted', style: { fontSize: 'var(--fs-sm)' } },
-    `Added ${formatDate(localDateOf(player.createdAt))}`));
+    `Joined ${formatDate(player.joinedOn || localDateOf(player.createdAt))}`));
 
   // Deliberately low-key: archiving is the normal path; deleting erases history.
   if (player.archived) {
