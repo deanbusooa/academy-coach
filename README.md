@@ -36,4 +36,12 @@ You can also open `/tests/index.html` in the browser while the app is being serv
 
 Everything is saved in this browser's local storage on this device. Clearing browser data deletes it. Use **Settings → Export backup** regularly, and keep the file somewhere safe.
 
+On a phone or tablet, **Export backup** opens the share sheet. Choose **Save to Files** (iPhone/iPad) or a cloud drive, or email the file to yourself. On a computer it downloads normally.
+
+### iPhone and iPad: home-screen app
+
+- **Separate data:** if you added Academy Coach to your home screen, that app has its own storage, separate from Safari. Players you entered in a Safari tab don't appear in the home-screen app, or the other way round. To move data across, export from one and import into the other.
+- **Downloads don't work there:** iOS ignores file downloads inside home-screen apps, which is why export uses the share sheet. Choose **Save to Files** so the backup isn't lost.
+- **Import:** **Settings → Import backup** opens the Files picker. Choose the backup `.json` you saved.
+
 See [CLAUDE.md](CLAUDE.md) for the architecture and code conventions.

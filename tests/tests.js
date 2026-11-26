@@ -10,7 +10,7 @@ import * as sessions from '../js/models/sessions.js';
 import * as bookings from '../js/models/bookings.js';
 import * as ratings from '../js/models/ratings.js';
 import * as store from '../js/store.js';
-import { validateBackup, buildBackup, backupToState, backupFilename } from '../js/backup.js';
+import { validateBackup, buildBackup, backupToState, backupFilename, exportBackup } from '../js/backup.js';
 import { deletePlayer, deleteDrill, renameAgeGroup } from '../js/actions.js';
 import { loadDemoData } from '../js/demo.js';
 import { parseHash, matchRoute, href } from '../js/router.js';
@@ -536,6 +536,64 @@ test('backup: round trip through validate + replaceAll', () => {
   store.replaceAll(backupToState(backup));
   eq(store.getAll('players')[0].name, 'A');
   eq(store.getSettings().currency, 'EUR');
+});
+
+// Fakes for exportBackup: a navigator with/without file sharing, and a document that records downloads.
+function fakeDoc() {
+  const downloads = [];
+  return {
+    downloads,
+    body: { append() {} },
+    createElement: () => ({ click() { downloads.push(this.download); }, remove() {} }),
+  };
+}
+function fakeNav({ canShare = true, shareError = null } = {}) {
+  const shared = [];
+  return {
+    shared,
+    canShare: ({ files }) => canShare && files.every((f) => f instanceof File),
+    share: async (data) => { if (shareError) throw shareError; shared.push(data); },
+  };
+}
+const named = (name) => Object.assign(new Error(name), { name });
+
+test('backup export: share sheet on touch devices, download otherwise (regression)', async () => {
+  store.init({ storage: memoryStorage() });
+  store.upsert('players', { name: 'A', ageGroup: 'U9' });
+
+  let nav = fakeNav(); let doc = fakeDoc();
+  eq(await exportBackup({ nav, doc, preferShare: true }), 'shared');
+  eq(nav.shared.length, 1);
+  const shared = nav.shared[0].files[0];
+  assert(/^academy-coach-backup-\d{4}-\d{2}-\d{2}\.json$/.test(shared.name), shared.name);
+  eq(JSON.parse(await shared.text()).players[0].name, 'A');
+  eq(doc.downloads.length, 0);
+  assert(store.getMeta().lastExportAt, 'counts as a backup');
+
+  // Desktop (no coarse pointer): plain download even if share exists.
+  nav = fakeNav(); doc = fakeDoc();
+  eq(await exportBackup({ nav, doc, preferShare: false }), 'downloaded');
+  eq(nav.shared.length, 0);
+  eq(doc.downloads.length, 1);
+
+  // No file sharing support → download.
+  doc = fakeDoc();
+  eq(await exportBackup({ nav: fakeNav({ canShare: false }), doc, preferShare: true }), 'downloaded');
+  eq(doc.downloads.length, 1);
+  doc = fakeDoc();
+  eq(await exportBackup({ nav: {}, doc, preferShare: true }), 'downloaded');
+
+  // Share fails for another reason → falls back to download.
+  doc = fakeDoc();
+  eq(await exportBackup({ nav: fakeNav({ shareError: named('NotAllowedError') }), doc, preferShare: true }), 'downloaded');
+  eq(doc.downloads.length, 1);
+
+  // User cancels the sheet → nothing downloaded, not recorded as a backup.
+  store.init({ storage: memoryStorage() });
+  doc = fakeDoc();
+  eq(await exportBackup({ nav: fakeNav({ shareError: named('AbortError') }), doc, preferShare: true }), 'cancelled');
+  eq(doc.downloads.length, 0);
+  eq(store.getMeta().lastExportAt, null);
 });
 
 test('backup: rejects bad files', () => {

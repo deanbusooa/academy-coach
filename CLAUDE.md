@@ -28,7 +28,7 @@ index.html ─▶ js/app.js ─▶ router.js ─▶ views/*.js ─▶ models/*.j
 | `js/app.js` | Route table, nav, `store.subscribe(() => router.refresh())`, SW registration. |
 | `js/models/*.js` | **Pure** domain functions: `normalizeX`, `validateX` (returns `{field: message}`), filters, derived stats. No DOM, no store. |
 | `js/actions.js` | Cascading writes (delete player → ratings/bookings/attendance; delete drill → session plans; rename age group). |
-| `js/backup.js` | `validateBackup` (pure), `downloadBackup`, `readBackupFile`. |
+| `js/backup.js` | `validateBackup` (pure), `exportBackup` (share sheet on touch devices, else download; injectable deps), `readBackupFile`. |
 | `js/ui/` | `form.js` (config-driven forms + `openFormModal`), `modal.js` (bottom sheet / dialog + `confirmDialog`), `toast.js`, `chart.js` (SVG line chart), `icons.js`. |
 | `js/views/` | One module per screen. `shared.js` holds common bits (page head, chips, search, FAB, empty state). |
 | `js/utils/` | `dom.js` (`h()`, `add()`, `setTitle`), `date.js`, `format.js`. |

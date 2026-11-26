@@ -10,7 +10,7 @@ import { CURRENCIES, plural } from '../utils/format.js';
 import { formatDate, daysBetween, todayISO, localDateOf } from '../utils/date.js';
 import { countByAgeGroup } from '../models/players.js';
 import { renameAgeGroup } from '../actions.js';
-import { downloadBackup, readBackupFile, validateBackup, backupToState } from '../backup.js';
+import { exportBackup, readBackupFile, validateBackup, backupToState } from '../backup.js';
 import { loadDemoData } from '../demo.js';
 import { pageHead } from './shared.js';
 
@@ -48,7 +48,14 @@ function backupCard(meta) {
     h('p', { class: age === null || age > 14 ? 'warn-text' : 'muted' },
       last ? `Last export: ${formatDate(last)}${age > 0 ? ` (${plural(age, 'day')} ago)` : ' (today)'}` : 'No backup exported yet.'),
     h('div', { class: 'row' },
-      h('button', { class: 'btn btn-pitch', type: 'button', onclick: () => { downloadBackup(); toast('Backup downloaded'); } }, icon('download'), 'Export backup'),
+      h('button', {
+        class: 'btn btn-pitch', type: 'button',
+        onclick: async () => {
+          const result = await exportBackup();
+          if (result === 'shared') toast('Backup shared — check it was saved');
+          else if (result === 'downloaded') toast('Backup downloaded');
+        },
+      }, icon('download'), 'Export backup'),
       h('label', { class: 'btn', for: 'import-file', role: 'button', tabindex: '0',
         onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } } },
       icon('upload'), 'Import backup'),

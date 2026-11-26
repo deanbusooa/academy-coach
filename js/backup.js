@@ -53,19 +53,55 @@ export function backupToState(data) {
 
 // ---------- DOM side ----------
 
-export function downloadBackup() {
-  const payload = buildBackup(store.snapshot());
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+/** Phones/tablets: the share sheet is the reliable way to save a file there. */
+function prefersShareSheet() {
+  return globalThis.matchMedia?.('(pointer: coarse)').matches ?? false;
+}
+
+function triggerDownload(json, filename, doc) {
+  const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  const a = doc.createElement('a');
   a.href = url;
-  a.download = backupFilename();
-  document.body.append(a);
+  a.download = filename;
+  doc.body.append(a);
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/**
+ * Hand the backup file to the user.
+ * On touch devices that can share files, opens the OS share sheet ("Save to
+ * Files", Drive, email…), because iOS home-screen apps ignore <a download>.
+ * Everywhere else, or if sharing fails, downloads the file.
+ * Must be called straight from a click (share needs the user gesture).
+ * Dependencies are injectable for tests.
+ * @returns {Promise<'shared'|'downloaded'|'cancelled'>} 'cancelled' does not count as a backup.
+ */
+export async function exportBackup({
+  nav = globalThis.navigator, doc = globalThis.document, preferShare = prefersShareSheet(),
+} = {}) {
+  const payload = buildBackup(store.snapshot());
+  const json = JSON.stringify(payload, null, 2);
+  const filename = backupFilename();
+  let method = null;
+
+  const file = typeof File === 'function' ? new File([json], filename, { type: 'application/json' }) : null;
+  if (preferShare && file && typeof nav?.share === 'function' && nav.canShare?.({ files: [file] })) {
+    try {
+      await nav.share({ files: [file], title: 'Academy Coach backup' });
+      method = 'shared';
+    } catch (err) {
+      if (err?.name === 'AbortError') return 'cancelled';
+      console.warn('[backup] share failed, downloading instead', err);
+    }
+  }
+  if (!method) {
+    triggerDownload(json, filename, doc);
+    method = 'downloaded';
+  }
   store.updateMeta({ lastExportAt: payload.exportedAt });
-  return payload;
+  return method;
 }
 
 export async function readBackupFile(file) {
