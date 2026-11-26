@@ -51,6 +51,7 @@ let lastLoadWarning = null;
  */
 export function init(opts = {}) {
   storage = opts.storage ?? globalThis.localStorage ?? null;
+  listenForOtherTabs(opts.events !== undefined ? opts.events : (typeof window !== 'undefined' ? window : null));
   listeners = new Set();
   batchDepth = 0;
   dirty = false;
@@ -71,6 +72,34 @@ export function init(opts = {}) {
     state = defaultState();
   }
   return state;
+}
+
+// ---------- other tabs ----------
+// Each tab keeps state in memory. Without this, tab B's next write would save
+// B's stale copy and silently erase whatever tab A saved in the meantime.
+
+let eventTarget = null;
+
+function listenForOtherTabs(target) {
+  eventTarget?.removeEventListener('storage', onStorageEvent);
+  eventTarget = target;
+  eventTarget?.addEventListener('storage', onStorageEvent);
+}
+
+function onStorageEvent(e) {
+  // key === null means another tab called localStorage.clear().
+  if (e.key !== null && e.key !== STORAGE_KEY) return;
+  if (e.storageArea && storage && e.storageArea !== storage) return;
+  const raw = e.key === null ? storage?.getItem(STORAGE_KEY) : e.newValue;
+  let next;
+  try {
+    next = raw == null ? defaultState() : normalizeState(migrate(JSON.parse(raw)));
+  } catch (err) {
+    console.error('[store] ignoring unreadable change from another tab', err);
+    return;
+  }
+  state = next;
+  notify();
 }
 
 export function getLoadWarning() {

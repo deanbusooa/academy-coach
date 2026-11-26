@@ -406,6 +406,37 @@ test('store: failed save rolls back and reports via the handler (regression)', (
   }
 });
 
+test('store: picks up writes from another tab (regression: multi-tab data loss)', () => {
+  const storage = memoryStorage();
+  const events = new EventTarget();
+  store.init({ storage, events });
+  const mine = store.upsert('players', { name: 'Tab A', ageGroup: 'U9' });
+  let notified = 0;
+  store.subscribe(() => notified++);
+
+  // Another tab saves its own state containing A's player plus a new one.
+  const other = JSON.parse(storage.getItem(store.STORAGE_KEY));
+  other.players.push({ id: 'from-b', name: 'Tab B', ageGroup: 'U9' });
+  const fire = (key, newValue) => events.dispatchEvent(Object.assign(new Event('storage'), { key, newValue }));
+  fire('unrelated-key', '{}');
+  eq(notified, 0, 'other keys ignored');
+  fire(store.STORAGE_KEY, JSON.stringify(other));
+  eq(notified, 1);
+  eq(store.getAll('players').map((p) => p.name).sort(), ['Tab A', 'Tab B']);
+
+  // Our next write now keeps the other tab's player instead of erasing it.
+  store.upsert('players', { ...mine, name: 'Tab A2' });
+  eq(JSON.parse(storage.getItem(store.STORAGE_KEY)).players.map((p) => p.name).sort(), ['Tab A2', 'Tab B']);
+
+  fire(store.STORAGE_KEY, '{garbage');
+  eq(store.getAll('players').length, 2, 'unreadable change ignored');
+
+  storage.removeItem(store.STORAGE_KEY);
+  fire(null, null); // localStorage.clear() in another tab
+  eq(store.getAll('players').length, 0);
+  store.init({ storage: memoryStorage(), events: null }); // detach
+});
+
 test('store: batch rolls back if its function throws', () => {
   store.init({ storage: memoryStorage() });
   store.upsert('drills', { name: 'keep' });
