@@ -127,10 +127,14 @@ export function buildForm(fields, values = {}) {
  * onSave(record) is called with the normalised record once validation passes;
  * return false from it (e.g. store write failed) to keep the sheet open.
  * onDelete (optional) shows a delete button; return false from it to keep the sheet open.
+ * warn(record) (optional) → null | { message, details?: string[], confirmLabel }:
+ *   a problem that doesn't block saving but must be confirmed (e.g. a clash).
+ *   The first submit shows it in the form and turns the save button into
+ *   confirmLabel; submitting again saves. Changing any field resets that.
  */
 export function openFormModal({
   title, fields, values = {}, normalize = (x) => x, validate = () => ({}),
-  onSave, onDelete, leftAction, saveLabel = 'Save', savedMessage = 'Saved', before, after,
+  onSave, onDelete, leftAction, saveLabel = 'Save', savedMessage = 'Saved', before, after, warn,
 }) {
   const { form, read, showErrors } = buildForm(fields, values);
   const submitId = `submit-${Date.now()}`;
@@ -149,13 +153,39 @@ export function openFormModal({
       },
     }, left.icon ? icon(left.icon) : null, left.label) : null,
     h('button', { type: 'button', class: 'btn', onclick: () => m.close() }, 'Cancel'),
-    h('button', { type: 'submit', class: 'btn btn-primary', form: submitId }, icon('check'), saveLabel),
+    h('button', { type: 'submit', class: 'btn btn-primary', form: submitId, dataset: { role: 'save' } }, icon('check'), saveLabel),
   );
+
+  // Confirm-to-save warning (see `warn` above).
+  const saveBtn = actions.querySelector('[data-role="save"]');
+  const warning = h('div', { class: 'form-warning', role: 'alert', hidden: true });
+  form.append(warning);
+  let warningConfirmed = false;
+  const clearWarning = () => {
+    if (warning.hidden) return;
+    warning.hidden = true;
+    warningConfirmed = false;
+    saveBtn.replaceChildren(icon('check'), saveLabel);
+  };
+  form.addEventListener('input', clearWarning);
+  form.addEventListener('change', clearWarning);
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const record = normalize({ ...values, ...read() });
     if (showErrors(validate(record))) return;
+    const w = warn?.(record);
+    if (w && !warningConfirmed) {
+      warning.replaceChildren(
+        h('strong', {}, icon('warning', 'note-icon'), w.message),
+        w.details?.length ? h('ul', {}, w.details.map((d) => h('li', {}, d))) : null,
+      );
+      warning.hidden = false;
+      warningConfirmed = true;
+      saveBtn.replaceChildren(icon('check'), w.confirmLabel || 'Save anyway');
+      warning.scrollIntoView({ block: 'nearest' });
+      return;
+    }
     try {
       // onSave returns false when the store could not save (the store's
       // save-error handler has already told the user): keep the sheet open.

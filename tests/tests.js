@@ -296,6 +296,19 @@ test('bookings: week filter, grouping, totals', () => {
   eq(bookings.totals(wk), { count: 3, paidCount: 1, unpaidCount: 2, total: 85, paid: 30, unpaid: 55 });
 });
 
+test('bookings: clash warning requires "Book anyway" (regression)', () => {
+  const list = [
+    { id: '1', date: '2026-11-26', startTime: '16:00', durationMin: 60 },
+    { id: '2', date: '2026-11-26', startTime: '16:30', durationMin: 60 },
+    bookings.cancelBooking({ id: '3', date: '2026-11-26', startTime: '16:15', durationMin: 60 }),
+  ];
+  const d = (b) => b.id;
+  eq(bookings.clashWarning(list, { id: 'n', date: '2026-11-26', startTime: '17:30', durationMin: 30 }, d), null);
+  eq(bookings.clashWarning(list, { id: 'n', date: '2026-11-26', startTime: '16:45', durationMin: 30 }, d),
+    { message: 'This overlaps 2 other 1-1s:', details: ['1', '2'], confirmLabel: 'Book anyway' }, 'cancelled one ignored');
+  eq(bookings.clashWarning(list, { id: '1', date: '2026-11-26', startTime: '16:00', durationMin: 45 }, d).details, ['2'], 'not with itself');
+});
+
 test('bookings: clash detection', () => {
   const list = [{ id: '1', date: '2026-11-26', startTime: '16:00', durationMin: 60 }];
   eq(bookings.findClashes(list, { id: 'n', date: '2026-11-26', startTime: '16:30', durationMin: 30 }).length, 1);

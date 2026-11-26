@@ -12,7 +12,7 @@ import {
 } from '../utils/date.js';
 import {
   FOCUS_AREAS, normalizeBooking, validateBooking, bookingsInWeek, groupByDay, totals, endTime,
-  findClashes, unpaidBookings, refundsDue, markRefunded, removalAction, refundsDueTotal, defaultResponsibleAdult,
+  findClashes, unpaidBookings, refundsDue, markRefunded, removalAction, refundsDueTotal, defaultResponsibleAdult, clashWarning,
 } from '../models/bookings.js';
 import { pageHead, emptyState, fab, playerOptions } from './shared.js';
 import { cancelBookingById } from '../actions.js';
@@ -181,14 +181,17 @@ export function openBookingForm(input = {}) {
       "The academy's safeguarding policy applies to every 1-1 session."),
     normalize: normalizeBooking,
     validate: validateBooking,
+    // An overlap is allowed (e.g. two siblings together) but never silent.
+    warn: (rec) => clashWarning(store.getAll('bookings'), rec,
+      (c) => `${playerById.get(c.playerId)?.name || 'Unknown player'}, ${formatDate(c.date)} ${c.startTime}–${endTime(c)}`),
     savedMessage: null,
     onSave: (rec) => {
       const clashes = findClashes(store.getAll('bookings'), rec);
       const saved = store.upsert('bookings', rec);
       if (!saved) return false;
-      // A clash is a heads-up, not a failure: the booking saved. Info style + warning icon.
+      // Confirmed in the form already; the toast is a reminder, not an error.
       if (clashes.length) {
-        toast(`Saved — note: overlaps ${plural(clashes.length, 'other booking')}`, { icon: 'warning', duration: 4000 });
+        toast(`Booked, overlapping ${plural(clashes.length, 'other 1-1')}`, { icon: 'warning', duration: 4000 });
       } else {
         toast(isEdit ? 'Booking updated' : `Booked ${formatDuration(saved.durationMin)} on ${formatDate(saved.date)}`);
       }

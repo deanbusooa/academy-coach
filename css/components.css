@@ -379,6 +379,14 @@
   animation: slide-up 0.2s ease;
 }
 .toast.error { border-left-color: var(--c-bad); }
+.form-warning {
+  padding: var(--s-3); border: 2px solid var(--c-warn); border-radius: var(--r-sm);
+  background: var(--c-warn-tint); font-size: var(--fs-sm);
+}
+.form-warning strong { display: flex; align-items: center; gap: var(--s-2); }
+.form-warning .note-icon { width: 18px; height: 18px; flex: none; color: var(--c-warn); }
+.form-warning ul { margin: var(--s-2) 0 0; padding-left: 1.4em; }
+
 .safeguarding-note {
   display: flex; align-items: center; gap: var(--s-2);
   margin: 0 0 var(--s-4); padding: var(--s-2) var(--s-3);

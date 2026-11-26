@@ -145,6 +145,21 @@ export function findClashes(bookings, b) {
   })());
 }
 
+/**
+ * Form warning for an overlapping 1-1, or null. Overlaps are allowed
+ * (e.g. siblings together) but must be confirmed with "Book anyway".
+ * `describe(b)` renders one clashing booking (the view supplies names/dates).
+ */
+export function clashWarning(bookings, rec, describe) {
+  const clashes = findClashes(bookings, rec);
+  if (!clashes.length) return null;
+  return {
+    message: `This overlaps ${clashes.length === 1 ? '1 other 1-1' : `${clashes.length} other 1-1s`}:`,
+    details: clashes.map(describe),
+    confirmLabel: 'Book anyway',
+  };
+}
+
 /** Not started yet: a later date, or later today. */
 export function isUpcoming(b, today, time) {
   return b.date > today || (b.date === today && b.startTime > time);
