@@ -7,7 +7,7 @@ import { buildForm, openFormModal } from '../ui/form.js';
 import { confirmDialog } from '../ui/modal.js';
 import { toast } from '../ui/toast.js';
 import { CURRENCIES, plural } from '../utils/format.js';
-import { formatDate, daysBetween, todayISO } from '../utils/date.js';
+import { formatDate, daysBetween, todayISO, localDateOf } from '../utils/date.js';
 import { countByAgeGroup } from '../models/players.js';
 import { renameAgeGroup } from '../actions.js';
 import { downloadBackup, readBackupFile, validateBackup, backupToState } from '../backup.js';
@@ -34,7 +34,7 @@ export function render(container) {
 // ---------- backup ----------
 
 function backupCard(meta) {
-  const last = meta.lastExportAt ? meta.lastExportAt.slice(0, 10) : null;
+  const last = localDateOf(meta.lastExportAt) || null;
   const age = last ? daysBetween(last, todayISO()) : null;
   const fileInput = h('input', { type: 'file', accept: 'application/json,.json', class: 'visually-hidden', id: 'import-file' });
   fileInput.addEventListener('change', async () => {
@@ -67,7 +67,7 @@ async function importFile(file) {
   ].join(', ');
   const confirmed = await confirmDialog({
     title: 'Replace all data?',
-    message: `This backup contains ${summary}${data.exportedAt ? `\nExported ${formatDate(data.exportedAt.slice(0, 10))}` : ''}.\n\nEverything currently on this device will be replaced.`,
+    message: `This backup contains ${summary}${localDateOf(data.exportedAt) ? `\nExported ${formatDate(localDateOf(data.exportedAt))}` : ''}.\n\nEverything currently on this device will be replaced.`,
     confirmLabel: 'Replace data',
     danger: true,
   });

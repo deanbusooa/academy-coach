@@ -1,5 +1,6 @@
 // Run the unit tests without a browser: `node tests/run-node.mjs`
 import './tests.js';
+import './node-only.js';
 import { run } from './harness.js';
 
 const results = await run();

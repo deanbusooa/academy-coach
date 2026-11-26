@@ -39,6 +39,16 @@ test('date: time helpers', () => {
   assert(date.isTime('09:05') && !date.isTime('24:00'));
 });
 
+test('date: localDateOf uses the local calendar day, not UTC (regression)', () => {
+  // Just after midnight and just before midnight local time: in any non-UTC
+  // timezone one of these has a different UTC date, which .slice(0, 10) returned.
+  eq(date.localDateOf(new Date(2026, 10, 26, 0, 30).toISOString()), '2026-11-26');
+  eq(date.localDateOf(new Date(2026, 10, 26, 23, 30).toISOString()), '2026-11-26');
+  eq(date.localDateOf(''), '');
+  eq(date.localDateOf('not a date'), '');
+  eq(date.localDateOf(null), '');
+});
+
 test('format: duration and initials', () => {
   eq(formatDuration(45), '45 min');
   eq(formatDuration(90), '1h 30m');

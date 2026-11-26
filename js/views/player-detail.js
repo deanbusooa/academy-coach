@@ -5,7 +5,7 @@ import { h, setTitle } from '../utils/dom.js';
 import { href } from '../router.js';
 import { icon } from '../ui/icons.js';
 import { formatMoney, round1, plural } from '../utils/format.js';
-import { todayISO, formatDate, relativeDay } from '../utils/date.js';
+import { todayISO, formatDate, relativeDay, localDateOf } from '../utils/date.js';
 import { telHref } from '../models/players.js';
 import { playerAttendance } from '../models/sessions.js';
 import { sortBookings, totals, endTime } from '../models/bookings.js';
@@ -99,7 +99,7 @@ export function render(container, { id }) {
   ));
 
   container.append(h('p', { class: 'muted', style: { fontSize: 'var(--fs-sm)' } },
-    `Added ${formatDate((player.createdAt || '').slice(0, 10))}`));
+    `Added ${formatDate(localDateOf(player.createdAt))}`));
 }
 
 function stat(value, label, tone = '') {
