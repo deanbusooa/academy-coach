@@ -379,6 +379,14 @@
   animation: slide-up 0.2s ease;
 }
 .toast.error { border-left-color: var(--c-bad); }
+.safeguarding-note {
+  display: flex; align-items: center; gap: var(--s-2);
+  margin: 0 0 var(--s-4); padding: var(--s-2) var(--s-3);
+  border-left: 4px solid var(--c-warn); background: var(--c-warn-tint);
+  border-radius: var(--r-sm); font-size: var(--fs-sm); font-weight: 600;
+}
+.safeguarding-note .note-icon { width: 18px; height: 18px; flex: none; color: var(--c-warn); }
+
 .toast.has-icon { display: flex; align-items: center; gap: var(--s-2); }
 .toast-icon { width: 20px; height: 20px; flex: none; color: var(--c-accent); }
 @media (min-width: 768px) { .toast-root { bottom: var(--s-5); } }

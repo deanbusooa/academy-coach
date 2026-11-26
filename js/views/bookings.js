@@ -12,7 +12,7 @@ import {
 } from '../utils/date.js';
 import {
   FOCUS_AREAS, normalizeBooking, validateBooking, bookingsInWeek, groupByDay, totals, endTime,
-  findClashes, unpaidBookings, refundsDue, markRefunded, removalAction, refundsDueTotal,
+  findClashes, unpaidBookings, refundsDue, markRefunded, removalAction, refundsDueTotal, defaultResponsibleAdult,
 } from '../models/bookings.js';
 import { pageHead, emptyState, fab, playerOptions } from './shared.js';
 import { cancelBookingById } from '../actions.js';
@@ -148,8 +148,10 @@ export function openBookingForm(input = {}) {
     paid: false,
     ...input,
   };
+  const playerById = new Map(players.map((p) => [p.id, p]));
+  if (!isEdit && !values.responsibleAdult) values.responsibleAdult = defaultResponsibleAdult(playerById.get(values.playerId));
 
-  openFormModal({
+  const m = openFormModal({
     title: isEdit ? 'Edit 1-1 booking' : 'New 1-1 booking',
     values,
     fields: [
@@ -164,9 +166,19 @@ export function openBookingForm(input = {}) {
         { name: 'price', label: `Price (${settings.currency})`, type: 'number', min: 0, step: '0.01' },
       ],
       { name: 'location', label: 'Location', placeholder: 'Optional' },
+      {
+        name: 'responsibleAdult', label: 'Responsible adult',
+        placeholder: 'Name and phone', hint: 'Who is responsible for the player around this session. Defaults to the parent contact.',
+      },
+      {
+        name: 'handover', label: 'Drop-off / collection', type: 'textarea', rows: 2,
+        placeholder: 'e.g. Dropped off and collected by mum at the car park',
+      },
       { name: 'paid', label: 'Paid', type: 'checkbox' },
       { name: 'notes', label: 'Notes', type: 'textarea', rows: 2 },
     ],
+    before: h('p', { class: 'safeguarding-note' }, icon('warning', 'note-icon'),
+      "The academy's safeguarding policy applies to every 1-1 session."),
     normalize: normalizeBooking,
     validate: validateBooking,
     savedMessage: null,
@@ -187,6 +199,15 @@ export function openBookingForm(input = {}) {
     // Paid: the money is owed back, so cancel (kept on record, refund due)
     // instead of deleting. Unpaid: plain delete. Based on the saved booking.
     leftAction: !isEdit ? null : bookingLeftAction(input, settings),
+  });
+
+  const form = m.el.querySelector('form');
+  const adult = form.elements.responsibleAdult;
+  let autoAdult = adult.value;
+  form.elements.playerId.addEventListener('change', (e) => {
+    if (adult.value !== autoAdult) return; // coach typed their own: leave it
+    autoAdult = defaultResponsibleAdult(playerById.get(e.target.value));
+    adult.value = autoAdult;
   });
 }
 

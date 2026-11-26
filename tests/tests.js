@@ -271,6 +271,17 @@ test('bookings: normalize/validate, end time', () => {
   assert(bookings.validateBooking(bookings.normalizeBooking({})).playerId);
 });
 
+test('bookings: safeguarding fields; responsible adult defaults to the parent contact', () => {
+  eq(bookings.defaultResponsibleAdult({ parentName: 'Ana Martins', parentPhone: '+61 491 570 156' }), 'Ana Martins (+61 491 570 156)');
+  eq(bookings.defaultResponsibleAdult({ parentName: 'Ana Martins' }), 'Ana Martins');
+  eq(bookings.defaultResponsibleAdult({ parentPhone: '+61 491 570 156' }), '(+61 491 570 156)');
+  eq(bookings.defaultResponsibleAdult({}), '');
+  eq(bookings.defaultResponsibleAdult(undefined), '');
+  const b = bookings.normalizeBooking({ responsibleAdult: '  Grandad Joe ', handover: ' Collected at 5pm by Joe ' });
+  eq([b.responsibleAdult, b.handover], ['Grandad Joe', 'Collected at 5pm by Joe']);
+  eq([bookings.normalizeBooking({}).responsibleAdult, bookings.normalizeBooking({}).handover], ['', '']);
+});
+
 test('bookings: week filter, grouping, totals', () => {
   const list = [
     { id: '1', date: '2026-11-23', startTime: '17:00', price: 30, paid: true },

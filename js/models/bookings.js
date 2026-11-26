@@ -23,6 +23,10 @@ export function normalizeBooking(input = {}) {
     paid: Boolean(input.paid),
     location: str(input.location),
     notes: str(input.notes),
+    // Safeguarding: who is responsible for the child during/around the session,
+    // and how they are dropped off and collected.
+    responsibleAdult: str(input.responsibleAdult),
+    handover: str(input.handover),
     // 'cancelled' bookings stay as history but leave the calendar and totals.
     status: input.status === 'cancelled' ? 'cancelled' : 'booked',
     // Set when a paid booking is cancelled; cleared by markRefunded().
@@ -71,6 +75,12 @@ export function refundsDueForPlayer(bookings, playerId) {
 /** Cancelled bookings whose payment still has to be returned, oldest first. */
 export function refundsDue(bookings) {
   return sortBookings(bookings.filter((b) => isCancelled(b) && b.refundDue));
+}
+
+/** Default "Responsible adult" for a 1-1: the player's parent contact. */
+export function defaultResponsibleAdult(player) {
+  if (!player?.parentName && !player?.parentPhone) return '';
+  return [player.parentName, player.parentPhone && `(${player.parentPhone})`].filter(Boolean).join(' ');
 }
 
 export function validateBooking(b) {
