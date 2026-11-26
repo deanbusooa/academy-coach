@@ -293,8 +293,13 @@ test('bookings: clash detection', () => {
 });
 
 test('bookings: paid bookings are cancelled (refund due), unpaid can be deleted', () => {
-  eq(bookings.removalAction({ paid: true }), 'cancel');
-  eq(bookings.removalAction({ paid: false }), 'delete');
+  const at = (date, startTime, paid) => bookings.removalAction({ date, startTime, paid }, '2026-11-26', '18:00');
+  eq(at('2026-12-01', '16:00', true), 'cancel', 'paid, future');
+  eq(at('2026-11-26', '18:30', true), 'cancel', 'paid, later today');
+  eq(at('2026-11-26', '18:00', true), 'delete-mistake', 'paid, starting now');
+  eq(at('2026-11-20', '16:00', true), 'delete-mistake', 'paid, past: no cancel/refund');
+  eq(at('2026-11-20', '16:00', false), 'delete', 'unpaid, past');
+  eq(at('2026-12-01', '16:00', false), 'delete', 'unpaid, future');
 
   store.init({ storage: memoryStorage() });
   const paid = store.upsert('bookings', bookings.normalizeBooking({ playerId: 'p', date: '2026-12-01', startTime: '16:00', durationMin: 60, price: 35, paid: true }));

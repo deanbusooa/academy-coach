@@ -8,7 +8,7 @@ import { toast } from '../ui/toast.js';
 import { icon } from '../ui/icons.js';
 import { formatMoney, formatDuration, plural } from '../utils/format.js';
 import {
-  todayISO, startOfWeek, weekDays, addDays, isISODate, formatWeekRange, formatDate, formatDayName, relativeDay,
+  todayISO, nowTime, startOfWeek, weekDays, addDays, isISODate, formatWeekRange, formatDate, formatDayName, relativeDay,
 } from '../utils/date.js';
 import {
   FOCUS_AREAS, normalizeBooking, validateBooking, bookingsInWeek, groupByDay, totals, endTime,
@@ -186,32 +186,59 @@ export function openBookingForm(input = {}) {
     },
     // Paid: the money is owed back, so cancel (kept on record, refund due)
     // instead of deleting. Unpaid: plain delete. Based on the saved booking.
-    leftAction: !isEdit ? null : removalAction(input) === 'cancel'
-      ? {
-        label: 'Cancel (refund due)', icon: 'x', danger: true,
-        run: async () => {
-          const ok = await confirmDialog({
-            title: 'Cancel this paid 1-1?',
-            message: `It comes off the calendar and ${formatMoney(input.price, settings.currency)} is added to Refunds due on the 1-1s page.`,
-            confirmLabel: 'Cancel booking',
-            cancelLabel: 'Keep booking',
-            danger: true,
-          });
-          if (!ok) return false;
-          if (!cancelBookingById(input.id)) return false;
-          toast(`Booking cancelled. ${formatMoney(input.price, settings.currency)} refund due`);
-          return true;
-        },
-      }
-      : {
-        label: 'Delete', icon: 'trash', danger: true,
-        run: async () => {
-          const ok = await confirmDialog({ title: 'Delete this booking?', confirmLabel: 'Delete', danger: true });
-          if (!ok) return false;
-          if (!store.remove('bookings', input.id)) return false;
-          toast('Booking deleted');
-          return true;
-        },
-      },
+    leftAction: !isEdit ? null : bookingLeftAction(input, settings),
   });
+}
+
+/** Footer action for an existing booking; see removalAction() for the rules. */
+function bookingLeftAction(input, settings) {
+  const kind = removalAction(input, todayISO(), nowTime());
+  if (kind === 'delete-mistake') {
+    // Secondary (not red): the session already happened, so this is only for fixing a mistake.
+    return {
+      label: 'Delete (entered by mistake)', icon: 'trash',
+      run: async () => {
+        const ok = await confirmDialog({
+          title: 'Delete this paid 1-1?',
+          message: `Only do this if the booking was entered by mistake. It has already taken place, so it can't be cancelled.
+
+It will be removed completely and no refund is recorded. The ${formatMoney(input.price, settings.currency)} payment will no longer appear anywhere.`,
+          confirmLabel: 'Delete, no refund',
+          cancelLabel: 'Keep booking',
+          danger: true,
+        });
+        if (!ok) return false;
+        if (!store.remove('bookings', input.id)) return false;
+        toast('Booking deleted (no refund recorded)');
+        return true;
+      },
+    };
+  }
+  return kind === 'cancel'
+    ? {
+      label: 'Cancel (refund due)', icon: 'x', danger: true,
+      run: async () => {
+        const ok = await confirmDialog({
+          title: 'Cancel this paid 1-1?',
+          message: `It comes off the calendar and ${formatMoney(input.price, settings.currency)} is added to Refunds due on the 1-1s page.`,
+          confirmLabel: 'Cancel booking',
+          cancelLabel: 'Keep booking',
+          danger: true,
+        });
+        if (!ok) return false;
+        if (!cancelBookingById(input.id)) return false;
+        toast(`Booking cancelled. ${formatMoney(input.price, settings.currency)} refund due`);
+        return true;
+      },
+    }
+    : {
+      label: 'Delete', icon: 'trash', danger: true,
+      run: async () => {
+        const ok = await confirmDialog({ title: 'Delete this booking?', confirmLabel: 'Delete', danger: true });
+        if (!ok) return false;
+        if (!store.remove('bookings', input.id)) return false;
+        toast('Booking deleted');
+        return true;
+      },
+    };
 }

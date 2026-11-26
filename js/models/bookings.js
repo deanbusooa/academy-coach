@@ -46,11 +46,16 @@ export function markRefunded(b, at = new Date().toISOString()) {
 
 /**
  * How a booking can be taken off the calendar from its edit form:
- * a paid one is cancelled (the money is owed back, so it must stay on record);
- * an unpaid one can simply be deleted.
+ * - 'cancel': paid and not started yet. The money is owed back, so it stays
+ *   on record as cancelled with a refund due.
+ * - 'delete-mistake': paid but already started/held. The session happened, so
+ *   there is nothing to cancel or refund; deleting is only for a booking
+ *   entered by mistake (no refund is recorded).
+ * - 'delete': unpaid, nothing owed either way.
  */
-export function removalAction(b) {
-  return b.paid ? 'cancel' : 'delete';
+export function removalAction(b, today, time) {
+  if (!b.paid) return 'delete';
+  return isUpcoming(b, today, time) ? 'cancel' : 'delete-mistake';
 }
 
 /** Total still to be refunded, rounded to cents. */
