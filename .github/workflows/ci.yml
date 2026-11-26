@@ -51,7 +51,10 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # A job-level block replaces the workflow-level one, so repeat contents: read
+    # or checkout fails on a private repo ("repository not found", exit 128).
     permissions:
+      contents: read
       pages: write
       id-token: write
     concurrency:
